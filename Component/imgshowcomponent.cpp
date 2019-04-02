@@ -1,6 +1,10 @@
 #include "imgshowcomponent.h"
 #include "Bin/header.h"
 
+#include "Core/FileHandle.h"
+
+QList<ImgShowComponent*> imgShowList;
+
 
 static const char *const cursor_xpm[] = {
     "15 15 3 1",
@@ -82,10 +86,35 @@ ImgShowComponent::ImgShowComponent(QWidget *parent):OpenGLWidget(parent)
     QPushButton* pushBtn = new QPushButton("Setting",this);
     ImgShowSettingsLayout->addWidget(pushBtn);
 
+    QLineEdit* saveDirLineEdit = new QLineEdit("P:/smartcar/monitor/2019/{name}.bmp",this);
+    //saveDirLineEdit->setMaximumHeight(30);
+    ImgShowSettingsLayout->addWidget(saveDirLineEdit);
 
-    QPushButton* pushBtn2 = new QPushButton("Save",this);
-    ImgShowSettingsLayout->addWidget(pushBtn2);
+    QPushButton* AutoSaveBtn = new QPushButton("Auto",this);
+    ImgShowSettingsLayout->addWidget(AutoSaveBtn);
 
+    QPushButton* saveOneBtn = new QPushButton("Save",this);
+    ImgShowSettingsLayout->addWidget(saveOneBtn);
+
+    AutoSaveBtn->setCheckable(true);
+
+
+    QDateTime timestamp = QDateTime::currentDateTime();
+    QString times = timestamp.toString("yyMMdd");
+    saveDirLineEdit->setText(QString("F:/monitorPics/2019/%1/").arg(times));
+
+    connect(AutoSaveBtn,&QPushButton::toggled,[=](bool checked){
+        fileHandle->isAutoSave = !this->isAutoSave;
+        fileHandle->saveDir = saveDirLineEdit->text();
+        saveDirLineEdit->setEnabled(!checked);
+        if(fileHandle->isAutoSave == true)
+        {
+            if(fileHandle->mkDir(fileHandle->saveDir))
+            {
+                qDebug()<<QString("%1 目錄創建成功!").arg(fileHandle->saveDir);
+            }
+        }
+    });
     mainLayout->addLayout(ImgShowSettingsLayout);
 
     emit updateSurface();
@@ -104,9 +133,31 @@ void ImgShowComponent::paintEvent(QPaintEvent *event)
     //qDebug()<<"paint"<<++i<<event->rect();
     Q_UNUSED(event);
     QPainter painter(this);
-    QRect parentRect=   this->rect();//绘图区域 这里是全部绘图..
+    QRect parentRect=   QRect(0,0,  this->width()   ,    this->height()- 27   );//绘图区域 这里是全部绘图..
     QRect pixRect   =   QRect(0,0,pixmap->width(),pixmap->height());
     painter.drawPixmap(parentRect,*pixmap,pixRect);
+}
+
+void ImgShowComponent::mouseMoveEvent(QMouseEvent *event)
+{
+
+    int16_t Ysite,Xsite;
+    //TODO 超出图像范围.那么停止更新信息.
+    Ysite = Limit(event->pos().y()   * IMG_ROW/ (this->height() - 27),IMG_TOP,IMG_BOTTOM);
+    Xsite = Limit(event->pos().x()  * IMG_COL/ this->width(),IMG_LEFT,IMG_RIGHT);
+
+    if(Ysite >= 0 && Xsite >=0 && Ysite < IMG_ROW && Xsite <IMG_COL)
+    {
+
+        QString pStr("%1,%2");
+        pStr = pStr.arg(Xsite).arg(Ysite)//这里pos是坐标，你把坐标按比例转换为你的刻度尺就可以了
+                ;
+        textLabel->setText(pStr);
+
+    }else{
+        textLabel->setText("pStr");
+
+    }
 }
 
 
@@ -166,28 +217,6 @@ void ImgShowComponent::dropEvent(QDropEvent *event)
         *pixmap = QPixmap::fromImage(dropImageTemp);
         //*pixmap = QPixmap::fromImage(dropImageTemp);
         emit updateSurface();
-    }
-}
-
-void ImgShowComponent::mouseMoveEvent(QMouseEvent *event)
-{
-
-    int16_t Ysite,Xsite;
-    //TODO 超出图像范围.那么停止更新信息.
-    Ysite = Limit(event->pos().y()   * IMG_ROW/ this->height(),IMG_TOP,IMG_BOTTOM);
-    Xsite = Limit(event->pos().x()  * IMG_COL/ this->width(),IMG_LEFT,IMG_RIGHT);
-
-    if(Ysite >= 0)
-    {
-
-        QString pStr("%1,%2");
-        pStr = pStr.arg(Xsite).arg(Ysite)//这里pos是坐标，你把坐标按比例转换为你的刻度尺就可以了
-                ;
-        textLabel->setText(pStr);
-
-    }else{
-        textLabel->setText("pStr");
-
     }
 }
 

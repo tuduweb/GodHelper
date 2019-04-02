@@ -60,7 +60,6 @@ MainWindow::MainWindow(QWidget *parent) :
 
     QHBoxLayout* carPanelsLayout = new QHBoxLayout;
     QList<QVBoxLayout*> carPanelLayoutList;
-    QList<ImgShowComponent*> imgShowList;
 
     //新建两个窗口 后面要批量生产的都要用List
     for(int i = 0;i < 2;i++)
@@ -318,7 +317,14 @@ MainWindow::MainWindow(QWidget *parent) :
         qDebug()<<time.elapsed()/1000.0<<"s";
     });
 
-    ui->bottomLayout->addSpacerItem(new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Expanding));
+
+
+    QTextEdit* saveDirTextEdit = new QTextEdit("P:/smartcar/monitor/2019/",this);
+    saveDirTextEdit->setMaximumHeight(30);
+    carPanelLayoutList[0]->addWidget(saveDirTextEdit);
+
+    carPanelLayoutList[0]->addSpacerItem(new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Expanding));
+    carPanelLayoutList[1]->addSpacerItem(new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Expanding));
 
 }
 

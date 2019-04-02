@@ -8,6 +8,9 @@
 
 //封装debug信息类..
 
+
+#include "Core/FileHandle.h"
+
 ImgProcCore::ImgProcCore(QObject *parent) : QObject(parent)
 {
     ////////////////////////////////////////
@@ -70,6 +73,7 @@ void ImgProcCore::ImageInterface(QImage image)
     emit updateSurface(pixmap);
 
 }
+
 void ImgProcCore::ByteArrayInterface(QByteArray* byteArray)
 {
     QImage image;
@@ -109,6 +113,11 @@ void ImgProcCore::CharArrayInterface(uchar* charArray)
 
 
     emit updateSurface(pixmap);
+
+    if(true == fileHandle->isAutoSave)
+    {
+        fileHandle->SaveImage(image);
+    }
 }
 
 

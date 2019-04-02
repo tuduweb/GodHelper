@@ -24,6 +24,10 @@ public:
 
     ~ImgShowComponent();
 
+    //一些变量 后面要放到其他的地方..
+    bool isAutoSave = false;
+    QString saveDir;
+
 public slots:
     void updateImgWidget(QPixmap packedPixmap);//更新窗口的槽
     void updateImgWidgetPtr(QPixmap* packedPixmap);//更新窗口的槽
@@ -47,4 +51,8 @@ private:
 
 
 };
+
+extern QList<ImgShowComponent*> imgShowList;
+
+
 #endif // IMGSHOWCOMPNENT_H

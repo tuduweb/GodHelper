@@ -50,8 +50,6 @@ extern COMM_DATA_TypeDef commData;
 
 
 
-
-
 typedef struct ImgProcListNode{
     QThread *thread;
     ImgProcCore* core;
@@ -74,7 +72,6 @@ public:
     ImgProcCore* imgProcCore;
     QThread imgProcThread;//图像线程
 
-    FileHandle* fileHandle;
     QThread fileHandleThread;//文件处理线程..
 
     ~DataCenter();

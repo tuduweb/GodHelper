@@ -3,6 +3,9 @@
 #include <QTime>
 
 #include <QAction>
+
+#include "Component/imgshowcomponent.h"
+
 //数据分发 消息处理
 ///////////////////////////////////////文本相关类/////////////////////////////////////////////
 struct MsgTypeDef
@@ -39,17 +42,14 @@ DataCenter::DataCenter(QObject *parent) : QObject(parent)
     imgProcThread.start();
 
 
+    //链接数据源.处理 ImgProcCore
     connect(this,&DataCenter::updateImage,imgProcCore,&ImgProcCore::ImageInterface);
-
-    connect(this,&DataCenter::updateImage,[=](){
-        //qDebug()<<"connect";
-    });
 
     connect(this,&DataCenter::ProcessImageCharArray,imgProcCore,&ImgProcCore::CharArrayInterface);
 
 
 
-    //初始化文件处理进程..异步
+    //===============================================================文件操作类=======================================================
     fileHandle = new FileHandle;
     fileHandle->moveToThread(&fileHandleThread);
     connect(&fileHandleThread, &QThread::finished, fileHandle, &QObject::deleteLater);//链接注销,必须链接.否则可能会内存泄露
@@ -60,14 +60,17 @@ DataCenter::DataCenter(QObject *parent) : QObject(parent)
 
 DataCenter::~DataCenter()
 {
+    //Core
     imgProcThread.quit();
     imgProcThread.wait();
 
+    //File
     fileHandleThread.quit();
     fileHandleThread.wait();
 }
 
 
+//开一路数据处理
 void DataCenter::OpenImgProcThread()
 {
     imgProcListItemDef* imgProcListItem = new imgProcListItemDef;
@@ -84,6 +87,7 @@ void DataCenter::ConnectSon()
     //connect(this,&DataCenter::updateImage,imgProc,&ImgProcCore::ImageInterface);
 }
 
+//定时
 void DataCenter::timerEvent(QTimerEvent * event)
 {
     uint currentTime = QDateTime::currentDateTime().toTime_t();
@@ -94,7 +98,6 @@ void DataCenter::timerEvent(QTimerEvent * event)
 }
 
 #include <QPixmap>
-
 static QImage* testImg;
 //网络等传输 传送的是二进制数据
 //sKey 换成数字容易匹配..
@@ -230,6 +233,7 @@ void DataCenter::DataInterface(QString sKey,QByteArray byteData)
 
 }
 
+//处理一个数据包..
 void DataCenter::ProcessPackage(COMM_DATA_TypeDef* packagePtr)
 {
     //数据校验…(这里不需要)
@@ -265,20 +269,7 @@ void DataCenter::ProcessPackage(COMM_DATA_TypeDef* packagePtr)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+//处理QImage文件..
 static QByteArray picsArray;
 //直接传输图片,只接受指定类型
 void DataCenter::DataInterface(QImage picData)
@@ -302,6 +293,7 @@ static QList<QImage> trackPicsList;//原始图像队列
 static QStandardItemModel model;
 static QImage dropImageTemp;
 
+//处理QList.QUrl.QImage
 void DataCenter::ImgUrlInterface(QList<QUrl> imgUrlList)
 {
     if(imgUrlList.isEmpty())  return;
@@ -316,7 +308,7 @@ void DataCenter::ImgUrlInterface(QList<QUrl> imgUrlList)
 
         //加载图像到..如果效率不够 开辟另外一个线程来加载..只存留最近几张图片..其他都存放到硬盘作为缓存数据
         dropImageTemp.load(imgUrlList[0].toLocalFile());
-        dropImageTemp.convertToFormat(QImage::Format_Grayscale8);
+        //dropImageTemp.convertToFormat(QImage::Format_Grayscale8);
         //图片判断..比如看是不是当前分辨率之类的..
 
         //QImage image(urls[0].toLocalFile());
@@ -368,6 +360,7 @@ static QList<DATASOURCE_ITEM_TypeDef> dataSource;
 
 //最后改成结构体等类型..
 
+//数据源管理.
 void DataSource_Init(void)
 {
     //初始化数据源..
