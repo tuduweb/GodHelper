@@ -40,6 +40,7 @@ signals:
 
 protected:
     void paintEvent(QPaintEvent *e);
+    //void resizeEvent(QResizeEvent* e);
     void dragEnterEvent(QDragEnterEvent *event);
     //void dragMoveEvent(QDragMoveEvent *event);
     void dropEvent(QDropEvent *event);
@@ -48,6 +49,9 @@ protected:
 private:
     QPixmap *pixmap;//显示的图片
 
+    QPixmap *subPixmap;//显示的图片
+
+    QLabel* subLabel1;
 
 
 };

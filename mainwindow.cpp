@@ -15,6 +15,9 @@
 
 #include <QtCharts>
 
+
+#include "Library/ParamLine.h"
+
 DataCenter* dataCenterPtr;
 static DataCenter *dataCenter;
 QThread dataCenterThread;
@@ -62,15 +65,17 @@ MainWindow::MainWindow(QWidget *parent) :
     QList<QVBoxLayout*> carPanelLayoutList;
 
     //新建两个窗口 后面要批量生产的都要用List
-    for(int i = 0;i < 2;i++)
+    for(int i = 0;i < 1;i++)
     {
         QVBoxLayout* carPanelLayoutItem = new QVBoxLayout();
         carPanelLayoutList.append(carPanelLayoutItem);
         ImgShowComponent *imgShow = new ImgShowComponent(this);
         imgShowList.append(imgShow);
-        imgShow->resize(564,360);
-        imgShow->setMinimumSize(564,360);
-        imgShow->setMaximumSize(564,360);
+        //imgShow->resize(564,360);
+        //imgShow->setMinimumSize(564,360);
+        //imgShow->setMaximumSize(564,360);
+
+
 
         carPanelLayoutItem->addWidget(imgShow);//横排
         carPanelsLayout->addLayout(carPanelLayoutItem);
@@ -260,6 +265,10 @@ MainWindow::MainWindow(QWidget *parent) :
     window2->setX(this->x() - 100);
     window2->setY(this->y());
     */
+
+
+
+    /////////////////////////////////////////////数学分析////////////////////////////////////////////////
     QPen seriesPen;
     seriesPen.setWidth(1);
     seriesPen.setColor(QColor("white"));
@@ -287,7 +296,7 @@ MainWindow::MainWindow(QWidget *parent) :
     chartView->setMaximumWidth(imgShowList[0]->width());
     chartView->setFrameStyle(0);
 
-    carPanelLayoutList[0]->addWidget(chartView);
+    //carPanelLayoutList[0]->addWidget(chartView);
     chartGrayScale->addSeries(splineSeries);
     splineSeries->setName("ceshi");
     chartGrayScale->createDefaultAxes();
@@ -318,13 +327,20 @@ MainWindow::MainWindow(QWidget *parent) :
     });
 
 
+    QTabWidget* carTab = new QTabWidget(this);
+    carTab->addTab(chartView,"Math Analysis");
+    carPanelLayoutList[0]->addWidget(carTab);
 
-    QTextEdit* saveDirTextEdit = new QTextEdit("P:/smartcar/monitor/2019/",this);
-    saveDirTextEdit->setMaximumHeight(30);
-    carPanelLayoutList[0]->addWidget(saveDirTextEdit);
+
+    ////////////////////////////////////////////PID整定/////////////////////////////////////////////
+    ParamLine* param = new ParamLine(this);
+    carPanelLayoutList[0]->addWidget(param);
+
+
+
 
     carPanelLayoutList[0]->addSpacerItem(new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Expanding));
-    carPanelLayoutList[1]->addSpacerItem(new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Expanding));
+    //carPanelLayoutList[1]->addSpacerItem(new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Expanding));
 
 }
 

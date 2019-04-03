@@ -30,29 +30,33 @@ HEADERS += \
     Bin/param.h \
     Bin/typedef.h \
     Component/imgshowcomponent.h \
-    mainwindow.h \
-    Core/openglwidget.h \
+    Component/UdpComponent.h \
     Core/consolecenter.h \
     Core/datacenter.h \
-    Component/UdpComponent.h \
+    Core/FileHandle.h \
+    Core/openglwidget.h \
     ImgProc/ImgProc.h \
     ImgProc/ImgProcCore.h \
     ImgProc/imgprocdisplay.h \
-    Core/FileHandle.h
+    mainwindow.h \
+    Library/CheckButton.h \
+    Library/ParamLine.h
 
 
 SOURCES += \
     Component/imgshowcomponent.cpp \
-    main.cpp \
-    mainwindow.cpp \
-    Core/openglwidget.cpp \
+    Component/UdpComponent.cpp \
     Core/consolecenter.cpp \
     Core/datacenter.cpp \
-    Component/UdpComponent.cpp \
+    Core/FileHandle.cpp \
+    Core/openglwidget.cpp \
     ImgProc/ImgProc.cpp \
     ImgProc/ImgProcCore.cpp \
     ImgProc/imgprocdisplay.cpp \
-    Core/FileHandle.cpp
+    main.cpp \
+    mainwindow.cpp \
+    Library/CheckButton.cpp \
+    Library/ParamLine.cpp
 
 
 

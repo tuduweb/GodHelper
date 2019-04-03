@@ -37,12 +37,6 @@ ImgShowComponent::ImgShowComponent(QWidget *parent):OpenGLWidget(parent)
     //设置大小
     setContentsMargins( 0, 0, 0, 0);
 
-    /*imgProc = new ImgProcCore;
-    imgProc->moveToThread(&imgProcThread);
-    connect(&imgProcThread, &QThread::finished, imgProc, &QObject::deleteLater);//链接注销,必须链接.否则可能会内存泄露
-    connect(&imgProcThread, &QThread::finished, &imgProcThread, &QObject::deleteLater);//如果是new出来的 得有自杀槽
-    imgProcThread.start();
-*/
 
     pixmap = new QPixmap(this->width(),this->height());
     pixmap->fill(QColor(255,255,255));
@@ -57,7 +51,7 @@ ImgShowComponent::ImgShowComponent(QWidget *parent):OpenGLWidget(parent)
     imgLabel->setFrameStyle(QFrame::NoFrame);
     imgLabel->setStyleSheet(QStringLiteral("border: 0px; background-color: rgba(255, 255, 255, 0.0);color:#CCC;"));
     imgLabel->setAlignment(Qt::AlignCenter);
-    imgLabel->setMinimumSize(IMG_COL,IMG_ROW);
+    imgLabel->setMinimumSize(IMG_COL*4,IMG_ROW*4);
 
     //imgLabel->resize(188,120);
     imgLabel->setText("imgLabel");//底层文字..
@@ -65,7 +59,7 @@ ImgShowComponent::ImgShowComponent(QWidget *parent):OpenGLWidget(parent)
     mainLayout->addWidget(imgLabel);
     textLabel = new QLabel(this);
     //textLabel->resize(600,24);
-    textLabel->setMaximumSize(1000,24);
+    textLabel->setMaximumSize(9999,24);
 
     textLabel->setStyleSheet(QStringLiteral("border: 0px; background-color: rgba(1, 1, 1, 0.3);color:#fff;font-size:14px;font-weight:bold;padding:0 20px;"));
     textLabel->setText("textLabel");
@@ -133,7 +127,8 @@ void ImgShowComponent::paintEvent(QPaintEvent *event)
     //qDebug()<<"paint"<<++i<<event->rect();
     Q_UNUSED(event);
     QPainter painter(this);
-    QRect parentRect=   QRect(0,0,  this->width()   ,    this->height()- 27   );//绘图区域 这里是全部绘图..
+    ;
+    QRect parentRect=   QRect(imgLabel->x(),imgLabel->y(),  imgLabel->width()   ,    imgLabel->height() + textLabel->height() );//绘图区域 这里是全部绘图..
     QRect pixRect   =   QRect(0,0,pixmap->width(),pixmap->height());
     painter.drawPixmap(parentRect,*pixmap,pixRect);
 }
