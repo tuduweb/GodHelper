@@ -13,6 +13,10 @@ extern inline int16 Abs(int16 input) {
     return input >= 0 ? input : -input;
 }
 
+extern inline float Absf(float input) {
+    return input >= 0.0f ? input : -input;
+}
+
 extern inline int16 Min(int16 a, int16 b) {
     return a > b ? b : a;
 }

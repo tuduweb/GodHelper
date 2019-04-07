@@ -221,7 +221,7 @@ void DataCenter::DataInterface(QString sKey,QByteArray byteData)
 
 
         }
-    }while(--size > 0);
+    }while(--size >= 0);
 
 
 

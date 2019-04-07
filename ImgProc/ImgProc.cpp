@@ -73,6 +73,8 @@ void ImgProc::test(void)
     qDebug()<<grayScale;
 
     Process_OSTU();
+
+    Process1(imgArrayPtr,95,15);
 }
 
 
@@ -139,3 +141,220 @@ void ImgProc::Process_OSTU(void)
 }
 
 //图像分析部分..
+
+
+//数据源 宽 高
+BYTE FastOSTU(const BYTE* pIn9, int width9, int height9)
+{
+
+    #define GrayScale 256
+    int pixelCount[GrayScale];
+    float pixelPro[GrayScale];
+    int i, j, pixelSum = width9 * height9/4;
+    unsigned char threshold = 0;
+    const unsigned char* data = pIn9;  //指向像素数据的指针
+    for (i = 0; i < GrayScale; i++)
+    {
+        pixelCount[i] = 0;
+        pixelPro[i] = 0;
+    }
+
+    unsigned long int gray_sum = 0;
+    //统计灰度级中每个像素在整幅图像中的个数
+    for (i = 0; i < height9; i+=2)
+    {
+        for (j = 0; j < width9; j+=2)
+        {
+            pixelCount[(int)data[i * width9 + j]]++;  //将当前的点的像素值作为计数数组的下标
+            gray_sum+=(int)data[i * width9 + j];       //灰度值总和
+        }
+    }
+
+    //计算每个像素值的点在整幅图像中的比例
+
+    for (i = 0; i < GrayScale; i++)
+    {
+        pixelPro[i] = (float)pixelCount[i] / pixelSum;
+
+    }
+
+    //遍历灰度级[0,255]
+    float w0, w1, u0tmp, u1tmp, u0, u1, u, deltaTmp, deltaMax = 0;
+
+
+
+        w0 = w1 = u0tmp = u1tmp = u0 = u1 = u = deltaTmp = 0;
+        for (j = 0; j < GrayScale; j++)
+        {
+
+                w0 += pixelPro[j];  //背景部分每个灰度值的像素点所占比例之和   即背景部分的比例
+                u0tmp += j * pixelPro[j];  //背景部分 每个灰度值的点的比例 *灰度值 //////// 灰度值 * 比例 =
+
+               w1=1-w0;
+               u1tmp=gray_sum/pixelSum-u0tmp;
+
+                u0 = u0tmp / w0;              //背景平均灰度
+                u1 = u1tmp / w1;              //前景平均灰度
+                u = u0tmp + u1tmp;            //全局平均灰度
+                deltaTmp = w0 * pow((u0 - u), 2) + w1 * pow((u1 - u), 2);
+                if (deltaTmp > deltaMax)
+                {
+                    deltaMax = deltaTmp;
+                    threshold = j;
+                }
+                if (deltaTmp < deltaMax)
+                {
+                    break;
+                }
+
+         }
+
+    return threshold;
+}
+
+#define CPPCODE(code) code
+
+
+//单纯跟踪左边沿的CANNY[SOBEL算子]
+void Sobel(void)
+{
+    //
+}
+
+
+//求全局的sobel算子
+//
+void FullSobel(void)
+{
+    //
+}
+
+
+
+static int borderPic[IMG_ROW][IMG_COL] = {0};//全局 带回拐
+static int borderLeft[IMG_ROW] = {0};//不带回拐 一行一个
+static int borderRight[IMG_ROW] = {0};//不带回拐 一行一个
+
+static int borderGradX[IMG_ROW][IMG_COL] = {0};
+static int borderGradY[IMG_ROW][IMG_COL] = {0};
+static int borderGrad[IMG_ROW][IMG_COL] = {0};
+
+
+void ImgProc::SobelOnePoint(BYTE* imgPtr,PointGradTypeDef* g,LINE row,LINE col)
+{
+    BYTE (*imageRaw)[120][188] = (uchar (*)[120][188])imgPtr;
+
+    g->gradY = borderGradY[row][col] = (*imageRaw)[row - 1][col+1] - (*imageRaw)[row - 1][col-1]
+            + ( (*imageRaw)[row][col+1] << 1 ) - ( (*imageRaw)[row - 1][col-1] << 1 ) + (*imageRaw)[row + 1][col+1] - (*imageRaw)[row - 1][col-1];
+
+    g->gradX = borderGradX[row][col] = -(*imageRaw)[row - 1][col-1] - ( (*imageRaw)[row - 1][col] << 1 )
+            - (*imageRaw)[row - 1][col+1] + (*imageRaw)[row + 1][col + 1] + (*imageRaw)[row + 1][col - 1] + ( (*imageRaw)[row + 1][col] << 1 );
+
+    g->grad = borderGrad[row][col] = (int)(( borderGradX[row][col] + borderGradY[row][col] )*1.0f / 2 + 0.5f);
+    g->gradYX = borderGradY[row][col]*1.0f / borderGradX[row][col];
+}
+//SOBEL梯度跟踪算法
+void ImgProc::Process1(BYTE* imgPtr,LINE startRow,LINE endRow)
+{
+    //计算近处全局灰度 隔行 隔列1 0 1 0 1 0 1
+    BYTE (*imageRaw)[120][188] = (uchar (*)[120][188])imgPtr;
+    BYTE* rowPtr = (*imageRaw)[IMG_BOTTOM - 7];
+
+    BYTE th = FastOSTU(rowPtr,IMG_COL,7);//阈值
+
+    //阈值限制.. 这里是大津法动态阈值.如果在十字的情况是会出问题的..所以需要添加判断方法
+
+
+    CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgb(135,206,250)), 1, Qt::SolidLine)));
+
+
+    //初始化..
+    memset(borderPic,0,sizeof(borderPic));
+    memset(borderLeft,0,sizeof(borderLeft));
+    memset(borderRight,0,sizeof(borderRight));
+    memset(borderGradX,0,sizeof(borderGradX));
+    memset(borderGradY,0,sizeof(borderGradY));
+    memset(borderGrad,0,sizeof(borderGrad));
+
+    LINE row = startRow;
+    LINE col = IMG_COL/2 - 1;
+
+    for(;row >= startRow - 7; --row)
+    {
+        rowPtr = (*imageRaw)[row];
+        //从某一列开始
+        for(col = IMG_COL/2 - 1; col < IMG_COL; col++)
+        {
+            //右边
+#if 1
+            if(rowPtr[col] < th && borderRight[row] == 0)
+            {
+                display->DrawPoint(col,row);
+                qDebug()<<row<<col;
+                borderRight[row] = col;
+            }
+#endif
+#if 1
+            //左边
+            if(rowPtr[IMG_COL - col] < th && borderLeft[row] == 0)
+            {
+                display->DrawPoint(IMG_COL - col,row);
+                qDebug()<<row<<col;
+                borderLeft[row] = IMG_COL - col;
+            }
+#endif
+        }
+    }
+
+
+    //对求出来的几个点进行连续性判断..
+
+    //Sobel算子 跟踪边沿
+    col = (borderLeft[row + 1] + borderLeft[row + 3]) / 2;
+    row += 2;//从上个大津法跳过的地方开始..
+    CPPCODE(display->H.value("H").painter->setPen(QPen(Qt::red, 1, Qt::SolidLine)));
+    display->DrawPoint(col,row);
+
+    float tanYX = 0;
+
+    for(int cnt = 0;InRange(col,IMG_LEFT,IMG_RIGHT) && InRange(row,endRow,IMG_BOTTOM)&& cnt < 90;cnt++)
+    {
+        borderGradY[row][col] = (*imageRaw)[row - 1][col+1] - (*imageRaw)[row - 1][col-1]
+                + ( (*imageRaw)[row][col+1] << 1 ) - ( (*imageRaw)[row][col-1] << 1 ) + (*imageRaw)[row + 1][col+1] - (*imageRaw)[row + 1][col-1];
+
+        borderGradX[row][col] = -(*imageRaw)[row - 1][col-1] - ( (*imageRaw)[row - 1][col] << 1 )
+                - (*imageRaw)[row - 1][col+1] + (*imageRaw)[row + 1][col + 1] + (*imageRaw)[row + 1][col - 1] + ( (*imageRaw)[row + 1][col] << 1 );
+
+        borderGrad[row][col] = (int)(( borderGradX[row][col] + borderGradY[row][col] )*1.0f / 2 + 0.5f);
+
+        CPPCODE(display->H.value("H").painter->setPen(QPen(Qt::blue, 1, Qt::SolidLine)));
+
+        //指向下一个点..
+        tanYX = borderGradY[row][col]*1.0f / borderGradX[row][col];
+        if(Absf(tanYX) > 3.0776835f)//2.4142135624 //3.0776835372
+        {
+            row -= 1;
+        }else if(tanYX > 0.7265425f)//0.7265425280
+        {
+            row -= 1;
+            col += 1;
+        }else if(tanYX < -0.7265425f)
+        {
+            row -= 1;
+            col -= 1;
+        }else if(tanYX > 0.0f)
+        {
+            col += 1;
+        }else{
+            col -= 1;
+        }
+
+        display->DrawPoint(col,row);
+        qDebug()<<QString("Paint (%1,%2) gradY %3 gradX %4   tanYX %5")
+                  .arg(col).arg(row).arg(borderGradY[row][col]).arg(borderGradX[row][col]).arg(tanYX);
+    }
+}
+
+
+
+//

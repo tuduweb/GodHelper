@@ -25,7 +25,7 @@ public:
     void SaveImage(QImage image);
 
     bool isAutoSave = false;
-    QString saveDir = QString("P:/smartcar/monitor/2019/{name}.bmp");
+    QString saveDir = QString("P:/smartcar/monitor/2019/{name}");
 
     bool mkDir(QString fullPath);
 

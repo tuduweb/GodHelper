@@ -120,4 +120,14 @@ void ImgProcCore::CharArrayInterface(uchar* charArray)
     }
 }
 
+QString strPos;
+void ImgProcCore::PosMoveSlot(QPoint p)
+{
+    PointGradTypeDef grad;
+    imgProc->SobelOnePoint(imgProc->imgArrayPtr,&grad,p.y(),p.x());
+    strPos = QString("%1 %2").arg(grad.gradY).arg(grad.gradX);
+    //emit AddMsgSignal(0,&strPos);
+
+}
+
 

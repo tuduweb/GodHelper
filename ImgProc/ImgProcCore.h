@@ -23,12 +23,14 @@ public:
 
 signals:
     void updateSurface(QPixmap*);
+    void AddMsgSignal(uint type,QString* msg);
 
 public slots:
     //传入的参数应该是结构体等..而且需要方便识别号
     void ImageInterface(QImage image);
     void ByteArrayInterface(QByteArray* byteArray);
     void CharArrayInterface(uchar* charArray);
+    void PosMoveSlot(QPoint p);
 
 };
 

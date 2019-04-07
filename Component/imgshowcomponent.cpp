@@ -127,7 +127,7 @@ void ImgShowComponent::paintEvent(QPaintEvent *event)
     //qDebug()<<"paint"<<++i<<event->rect();
     Q_UNUSED(event);
     QPainter painter(this);
-    ;
+
     QRect parentRect=   QRect(imgLabel->x(),imgLabel->y(),  imgLabel->width()   ,    imgLabel->height() + textLabel->height() );//绘图区域 这里是全部绘图..
     QRect pixRect   =   QRect(0,0,pixmap->width(),pixmap->height());
     painter.drawPixmap(parentRect,*pixmap,pixRect);
@@ -135,11 +135,25 @@ void ImgShowComponent::paintEvent(QPaintEvent *event)
 
 void ImgShowComponent::mouseMoveEvent(QMouseEvent *event)
 {
+    static QPoint lastPos(0,0);
+    if(receivedCnt == 0)
+    {
+        return;
+    }
 
     int16_t Ysite,Xsite;
     //TODO 超出图像范围.那么停止更新信息.
     Ysite = Limit(event->pos().y()   * IMG_ROW/ (this->height() - 27),IMG_TOP,IMG_BOTTOM);
     Xsite = Limit(event->pos().x()  * IMG_COL/ this->width(),IMG_LEFT,IMG_RIGHT);
+
+    if(lastPos.x() == Xsite && lastPos.y() == Ysite)
+    {
+        return;
+    }
+
+    lastPos.setX(Xsite);
+    lastPos.setY(Ysite);
+
 
     if(Ysite >= 0 && Xsite >=0 && Ysite < IMG_ROW && Xsite <IMG_COL)
     {
@@ -148,7 +162,7 @@ void ImgShowComponent::mouseMoveEvent(QMouseEvent *event)
         pStr = pStr.arg(Xsite).arg(Ysite)//这里pos是坐标，你把坐标按比例转换为你的刻度尺就可以了
                 ;
         textLabel->setText(pStr);
-
+        emit PosMove(QPoint(Xsite,Ysite));
     }else{
         textLabel->setText("pStr");
 
@@ -219,12 +233,14 @@ void ImgShowComponent::updateImgWidget(QPixmap packedPixmap)
 {
     //qDebug()<<packedPixmap;
     *pixmap = packedPixmap;
+    receivedCnt++;
     emit updateSurface();
 }
 void ImgShowComponent::updateImgWidgetPtr(QPixmap* packedPixmapPtr)
 {
     qDebug()<<packedPixmapPtr;
     pixmap = packedPixmapPtr;
+    receivedCnt++;
     emit updateSurface();
 }
 
@@ -233,6 +249,7 @@ void ImgShowComponent::updateImage(QImage imagePtr)
 {
     //显示出来
     *pixmap = QPixmap::fromImage(imagePtr,Qt::AutoDither);
+    receivedCnt++;
 
     emit updateSurface();
 }

@@ -27,6 +27,7 @@ public:
     //一些变量 后面要放到其他的地方..
     bool isAutoSave = false;
     QString saveDir;
+    quint32 receivedCnt = 0;
 
 public slots:
     void updateImgWidget(QPixmap packedPixmap);//更新窗口的槽
@@ -37,6 +38,7 @@ signals:
     void dropSignal(QImage image);//拖入信号
     void dropSignals(QList<QUrl> imgUrlList);
     void SaveImages();
+    void PosMove(QPoint p);
 
 protected:
     void paintEvent(QPaintEvent *e);

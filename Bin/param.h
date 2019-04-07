@@ -7,5 +7,6 @@
 #define IMG_BOTTOM (IMG_ROW - 1)
 #define IMG_LEFT 0
 #define IMG_RIGHT (IMG_COL - 1)
+#define IMG_MID IMG_COL/2
 
 #endif

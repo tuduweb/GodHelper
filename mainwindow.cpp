@@ -92,6 +92,7 @@ MainWindow::MainWindow(QWidget *parent) :
     //绑定一个数据..传递方式请用数据指针..
     connect(imgShowList.first(),&ImgShowComponent::dropSignals,dataCenter,&DataCenter::ImgUrlInterface);
     connect(dataCenterPtr->imgProcCore,&ImgProcCore::updateSurface,imgShowList[0],&ImgShowComponent::updateImgWidgetPtr);
+    connect(imgShowList[0],&ImgShowComponent::PosMove,dataCenterPtr->imgProcCore,&ImgProcCore::PosMoveSlot);
 
 
 
@@ -229,6 +230,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
 
     connect(dataCenterPtr,&DataCenter::AddMsgSignal,this,&MainWindow::AddMsg);
+    connect(dataCenterPtr->imgProcCore,&ImgProcCore::AddMsgSignal,this,&MainWindow::AddMsg);
 
 
     //一些测试
@@ -293,7 +295,7 @@ MainWindow::MainWindow(QWidget *parent) :
     //*set0 << 1 << 2 << 3 << 4 << 5 << 6;// 名字为 Jane 竖条的 6个值 （分别代表6个月的值）
     //splineSeries->append(set0);
     chartView->setMaximumHeight(150);
-    chartView->setMaximumWidth(imgShowList[0]->width());
+    //chartView->setMaximumWidth(imgShowList[0]->width());
     chartView->setFrameStyle(0);
 
     //carPanelLayoutList[0]->addWidget(chartView);
