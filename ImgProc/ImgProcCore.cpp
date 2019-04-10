@@ -125,7 +125,7 @@ void ImgProcCore::PosMoveSlot(QPoint p)
 {
     PointGradTypeDef grad;
     imgProc->SobelOnePoint(imgProc->imgArrayPtr,&grad,p.y(),p.x());
-    strPos = QString("(%1,%2) %3 %4").arg(p.x()).arg(p.y()).arg(grad.gradY).arg(grad.gradX);
+    strPos = QString("(%1,%2) %3 %4").arg(p.y()).arg(p.x()).arg(grad.gradY).arg(grad.gradX);
     qDebug()<<strPos;
     //emit AddMsgSignal(0,&strPos);
 

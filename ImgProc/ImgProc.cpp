@@ -251,11 +251,11 @@ void ImgProc::SobelOnePoint(BYTE* imgPtr,PointGradTypeDef* g,LINE row,LINE col)
 {
     BYTE (*imageRaw)[120][188] = (uchar (*)[120][188])imgPtr;
 
-    g->gradY = (*imageRaw)[row - 1][col+1] - (*imageRaw)[row - 1][col-1]
-            + ( (*imageRaw)[row][col+1] << 1 ) - ( (*imageRaw)[row - 1][col-1] << 1 ) + (*imageRaw)[row + 1][col+1] - (*imageRaw)[row - 1][col-1];
+    g->gradY = (*imageRaw)[row - 1][col+1] + (*imageRaw)[row + 1][col + 1] + ( (*imageRaw)[row][col+1] << 1 )
+            - (*imageRaw)[row - 1][col-1] - ( (*imageRaw)[row][col-1] << 1 ) - (*imageRaw)[row + 1][col - 1];
 
-    g->gradX = -(*imageRaw)[row - 1][col-1] - ( (*imageRaw)[row - 1][col] << 1 )
-            - (*imageRaw)[row - 1][col+1] + (*imageRaw)[row + 1][col + 1] + (*imageRaw)[row + 1][col - 1] + ( (*imageRaw)[row + 1][col] << 1 );
+    g->gradX = -(*imageRaw)[row - 1][col-1] - ( (*imageRaw)[row - 1][col] << 1 ) - (*imageRaw)[row - 1][col+1]
+            + (*imageRaw)[row + 1][col - 1] + ( (*imageRaw)[row + 1][col] << 1 ) + (*imageRaw)[row + 1][col + 1];
 
     g->grad = (int)(( Abs(g->gradX) + Abs(g->gradY) )*1.0f / 2 + 0.5f);
     g->gradYX = g->gradY*1.0f / g->gradX;
@@ -337,24 +337,30 @@ void ImgProc::Process1(BYTE* imgPtr,LINE startRow,LINE endRow)
         CPPCODE(display->H.value("H").painter->setPen(QPen(Qt::blue, 1, Qt::SolidLine)));
 
         //指向下一个点..
-        tanYX = borderGradY[row][col]*1.0f / borderGradX[row][col];
-        if(Absf(tanYX) > 3.0776835f)//2.4142135624 //3.0776835372
+        if(borderGradY[row][col] == 0)
         {
-            row -= 1;
-        }else if(tanYX > 0.7265425f)//0.7265425280
-        {
-            row -= 1;
-            col += 1;
-        }else if(tanYX < -0.7265425f)
-        {
-            row -= 1;
-            col -= 1;
-        }else if(tanYX > 0.0f)
-        {
-            col += 1;
+            //row -= 1;
         }else{
-            col -= 1;
+            tanYX = - borderGradX[row][col]*1.0f / borderGradY[row][col];
+            if(Absf(tanYX) > 3.0776835f)//2.4142135624 //3.0776835372
+            {
+                row -= 1;
+            }else if(tanYX > 0.7265425f)//0.7265425280
+            {
+                row -= 1;
+                col += 1;
+            }else if(tanYX < -0.7265425f)
+            {
+                row -= 1;
+                col -= 1;
+            }else if(tanYX > 0.0f)
+            {
+                col += 1;
+            }else{
+                col -= 1;
+            }
         }
+
 
         display->DrawPoint(col,row);
         qDebug()<<QString("Paint (%1,%2) gradY %3 gradX %4   tanYX %5")
@@ -458,7 +464,7 @@ void ImgProc::Process2(BYTE* imgPtr,LINE startRow,LINE endRow)
 
         //三点综合判断..选取权值最高的点当做...
 
-        #if 0
+        #if 1
         if(l.grad > c.grad && l.grad > r.grad)
         {
             col = lPoint.x;
@@ -576,5 +582,36 @@ void ImgProc::Process2(BYTE* imgPtr,LINE startRow,LINE endRow)
 
 }
 
+
+//区域canny算法
+//智能车中的canny算法 没有使用高斯模糊步骤
+struct CannyGradTypeDef{
+    int gradX;
+    int gradY;
+    float atan;
+};
+
+void ImgProc::ProcessCanny(BYTE* imgPtr,LINE startRow,LINE endRow,LINE startCol,LINE endCol)
+{
+    BYTE (*imageRaw)[IMG_ROW][IMG_COL] = (uchar (*)[IMG_ROW][IMG_COL])imgPtr;
+    CannyGradTypeDef grad[IMG_ROW][IMG_COL];
+    PointGradTypeDef g;
+
+
+    //确定矩形区域 远处为0行 近处为MAX - 1 行
+    LINE row = startRow - 1,col = startCol + 1;
+
+    for(;row > endRow;--row)
+    {
+        for(col = startCol + 1;col < endCol;++col)
+        {
+            SobelOnePoint(imgPtr,&g,row,col);
+            grad[row][col].gradX = g.gradX;
+            grad[row][col].gradY = g.gradY;
+            grad[row][col].atan = atan2(g.gradY,g.gradX);
+        }
+    }
+
+}
 
 //
