@@ -36,10 +36,15 @@ void GetGrayScale(uchar *ptr,short grayScale[])
         //qDebug()<<qGray(grayImage->pixel(i,119-i))<<(*imageRaw)[119-i][i];
     }
 
+
+
 }
 
-
-
+//指针地址 值 判断测试
+void ImgProc::timerEvent(QTimerEvent * event)
+{
+    //qDebug()<<this->imgArrayPtr;
+}
 
 ImgProc::ImgProc(QObject *parent) : QObject(parent)
 {
@@ -47,6 +52,8 @@ ImgProc::ImgProc(QObject *parent) : QObject(parent)
     //image = new QImage(188,120,QImage::Format_Grayscale8);
     //imgArrayPtr = (uchar *)image->bits();
     //imgArray = (uchar (*)[IMG_ROW][IMG_COL])image->bits();
+    this->startTimer(2000);
+
 }
 
 void ImgProc::UpdateCache(QImage* imagePtr)
@@ -74,7 +81,7 @@ void ImgProc::test(void)
 
     Process_OSTU();
 
-    Process1(imgArrayPtr,95,15);
+    Process2(imgArrayPtr,95,15);
 }
 
 
@@ -244,14 +251,14 @@ void ImgProc::SobelOnePoint(BYTE* imgPtr,PointGradTypeDef* g,LINE row,LINE col)
 {
     BYTE (*imageRaw)[120][188] = (uchar (*)[120][188])imgPtr;
 
-    g->gradY = borderGradY[row][col] = (*imageRaw)[row - 1][col+1] - (*imageRaw)[row - 1][col-1]
+    g->gradY = (*imageRaw)[row - 1][col+1] - (*imageRaw)[row - 1][col-1]
             + ( (*imageRaw)[row][col+1] << 1 ) - ( (*imageRaw)[row - 1][col-1] << 1 ) + (*imageRaw)[row + 1][col+1] - (*imageRaw)[row - 1][col-1];
 
-    g->gradX = borderGradX[row][col] = -(*imageRaw)[row - 1][col-1] - ( (*imageRaw)[row - 1][col] << 1 )
+    g->gradX = -(*imageRaw)[row - 1][col-1] - ( (*imageRaw)[row - 1][col] << 1 )
             - (*imageRaw)[row - 1][col+1] + (*imageRaw)[row + 1][col + 1] + (*imageRaw)[row + 1][col - 1] + ( (*imageRaw)[row + 1][col] << 1 );
 
-    g->grad = borderGrad[row][col] = (int)(( borderGradX[row][col] + borderGradY[row][col] )*1.0f / 2 + 0.5f);
-    g->gradYX = borderGradY[row][col]*1.0f / borderGradX[row][col];
+    g->grad = (int)(( Abs(g->gradX) + Abs(g->gradY) )*1.0f / 2 + 0.5f);
+    g->gradYX = g->gradY*1.0f / g->gradX;
 }
 //SOBEL梯度跟踪算法
 void ImgProc::Process1(BYTE* imgPtr,LINE startRow,LINE endRow)
@@ -355,6 +362,219 @@ void ImgProc::Process1(BYTE* imgPtr,LINE startRow,LINE endRow)
     }
 }
 
+
+
+struct PointTypeDef
+{
+    LINE x;
+    LINE y;
+};
+
+void ImgProc::Process2(BYTE* imgPtr,LINE startRow,LINE endRow)
+{
+    PointTypeDef lastPoint,prevPoint;
+    PointTypeDef cPoint,lPoint,rPoint;
+    //计算近处全局灰度 隔行 隔列1 0 1 0 1 0 1
+    BYTE (*imageRaw)[120][188] = (uchar (*)[120][188])imgPtr;
+    BYTE* rowPtr = (*imageRaw)[IMG_BOTTOM - 7];
+
+    BYTE th = FastOSTU(rowPtr,IMG_COL,7);//阈值
+
+    //阈值限制.. 这里是大津法动态阈值.如果在十字的情况是会出问题的..所以需要添加判断方法
+
+
+    CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgb(135,206,250)), 1, Qt::SolidLine)));
+
+
+    //初始化..
+    memset(borderPic,0,sizeof(borderPic));
+    memset(borderLeft,0,sizeof(borderLeft));
+    memset(borderRight,0,sizeof(borderRight));
+    memset(borderGradX,0,sizeof(borderGradX));
+    memset(borderGradY,0,sizeof(borderGradY));
+    memset(borderGrad,0,sizeof(borderGrad));
+    prevPoint.x = prevPoint.y = lastPoint.y = lastPoint.x = 0;
+    cPoint.x = cPoint.y = lPoint.x = lPoint.y = rPoint.x = rPoint.y = 0;
+
+    LINE row = startRow;
+    LINE col = IMG_COL/2 - 1;
+
+
+    //大津法判断起始边界 减少运算量
+    //我们有理由相信近处的边界误差较小
+    for(;row >= startRow - 7; --row)
+    {
+        rowPtr = (*imageRaw)[row];
+        //从某一列开始
+        for(col = IMG_COL/2 - 1; col < IMG_COL; col++)
+        {
+            //右边
+#if 1
+            if(rowPtr[col] < th && borderRight[row] == 0)
+            {
+                display->DrawPoint(col,row);
+                qDebug()<<row<<col;
+                borderRight[row] = col;
+            }
+#endif
+#if 1
+            //右边
+            if(rowPtr[IMG_COL - col] < th && borderLeft[row] == 0)
+            {
+                display->DrawPoint(IMG_COL - col,row);
+                qDebug()<<row<<col;
+                borderLeft[row] = IMG_COL - col;
+            }
+#endif
+        }
+    }
+
+
+    //对求出来的几个点进行连续性判断..
+
+    //Sobel算子 跟踪边沿
+    col = (borderLeft[row + 1] + borderLeft[row + 3]) / 2;
+    row += 2;//从上个大津法跳过的地方开始..
+    CPPCODE(display->H.value("H").painter->setPen(QPen(Qt::red, 1, Qt::SolidLine)));
+    display->DrawPoint(col,row);
+
+    cPoint.x = col;
+    rPoint.y = lPoint.y = cPoint.y = row;
+    lPoint.x = col - 1;
+    rPoint.x = col + 1;
+
+    float tanYX = 0;
+
+    PointGradTypeDef l,c,r;
+    for(int cnt = 0;InRange(col,IMG_LEFT + 1,IMG_RIGHT - 1) && InRange(row,endRow + 1,IMG_BOTTOM - 1)&& cnt < 90;cnt++)
+    {
+
+        SobelOnePoint(imgPtr,&c,cPoint.y,cPoint.x);
+
+        SobelOnePoint(imgPtr,&l,lPoint.y,lPoint.x);
+
+        SobelOnePoint(imgPtr,&r,rPoint.y,rPoint.x);
+
+
+        //三点综合判断..选取权值最高的点当做...
+
+        #if 0
+        if(l.grad > c.grad && l.grad > r.grad)
+        {
+            col = lPoint.x;
+            borderGradY[row][col] = l.gradY;
+            borderGradX[row][col] = l.gradX;
+            borderGrad[row][col] = l.grad;
+            qDebug("Move Left");
+        }else if(r.grad > c.grad && r.grad > l.grad)
+        {
+            col = rPoint.x;
+            borderGradY[row][col] = r.gradY;
+            borderGradX[row][col] = r.gradX;
+            borderGrad[row][col] = r.grad;
+            qDebug("Move Right");
+        }else// if(c.grad >= l.grad && c.grad >= r.grad)
+        #endif
+        {
+
+            borderGradY[row][col] = c.gradY;
+            borderGradX[row][col] = c.gradX;
+            borderGrad[row][col] = c.grad;
+        }
+
+
+
+        /*
+        borderGradY[row][col] = (*imageRaw)[row - 1][col+1] - (*imageRaw)[row - 1][col-1]
+                + ( (*imageRaw)[row][col+1] << 1 ) - ( (*imageRaw)[row][col-1] << 1 ) + (*imageRaw)[row + 1][col+1] - (*imageRaw)[row + 1][col-1];
+
+        borderGradX[row][col] = -(*imageRaw)[row - 1][col-1] - ( (*imageRaw)[row - 1][col] << 1 )
+                - (*imageRaw)[row - 1][col+1] + (*imageRaw)[row + 1][col + 1] + (*imageRaw)[row + 1][col - 1] + ( (*imageRaw)[row + 1][col] << 1 );
+
+        borderGrad[row][col] = (int)(( borderGradX[row][col] + borderGradY[row][col] )*1.0f / 2 + 0.5f);
+        */
+
+        CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(170,238,0,50), 1, Qt::SolidLine)));
+
+        //指向下一个点..
+        tanYX = borderGradY[row][col]*1.0f / borderGradX[row][col];
+
+
+        qDebug()<<QString("Paint (%1,%2) gradY %3 gradX %4   tanYX %5")
+                  .arg(col).arg(row).arg(borderGradY[row][col]).arg(borderGradX[row][col]).arg(tanYX);
+
+        if(Absf(tanYX) > 3.0776835f)//2.4142135624 //3.0776835372
+        {
+            row -= 1;
+            lPoint.y = rPoint.y = cPoint.y = row;
+            lPoint.x = cPoint.x - 1;
+            rPoint.x = cPoint.x + 1;
+        }else if(tanYX > 0.7265425f)//0.7265425280
+        {
+            row -= 1;
+            col += 1;
+            cPoint.y = row;
+            cPoint.x = col;
+
+            lPoint.y = row - 1;
+            lPoint.x = col - 1;
+
+            rPoint.y = row + 1;
+            rPoint.x = col + 1;
+        }else if(tanYX < -0.7265425f)
+        {
+            row -= 1;
+            col -= 1;
+            cPoint.y = row;
+            cPoint.x = col;
+
+            lPoint.y = row + 1;
+            lPoint.x = col + 1;
+
+            rPoint.y = row - 1;
+            rPoint.x = col - 1;
+        }else if(tanYX > 0.0f)
+        {
+            col += 1;
+            cPoint.y = row;
+            cPoint.x = col;
+
+            lPoint.y = row - 1;
+            lPoint.x = col;
+
+            rPoint.y = row + 1;
+            rPoint.x = col;
+        }else{
+            col -= 1;
+            cPoint.y = row;
+            cPoint.x = col;
+
+            lPoint.y = row - 1;
+            lPoint.x = col;
+
+            rPoint.y = row + 1;
+            rPoint.x = col;
+        }
+
+        //强行递推..
+        if( (lastPoint.x == col && lastPoint.y == row) || (prevPoint.x == col && prevPoint.y == row) )
+        {
+            row -= 1;
+            cPoint.y -= 1;
+            lPoint.y -= 1;
+            rPoint.y -= 1;
+        }
+
+        prevPoint = lastPoint;
+
+        lastPoint.x = col;
+        lastPoint.y = row;
+
+
+        display->DrawPoint(col,row);
+    }
+
+}
 
 
 //

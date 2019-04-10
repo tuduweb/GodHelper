@@ -302,7 +302,7 @@ MainWindow::MainWindow(QWidget *parent) :
     chartGrayScale->addSeries(splineSeries);
     splineSeries->setName("ceshi");
     chartGrayScale->createDefaultAxes();
-    chartGrayScale->setTitle("灰度直方图");
+    chartGrayScale->setTitle("GrayScale");
     chartGrayScale->axisX()->setRange(0,256);
     chartGrayScale->axisY()->hide();
     chartGrayScale->axisY()->setRange(0,1000);

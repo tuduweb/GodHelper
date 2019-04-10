@@ -6,6 +6,13 @@
 
 #include "Component/imgshowcomponent.h"
 
+
+//跑道原始图像链表
+static QList<QImage> trackPicsList;//原始图像队列
+static QStandardItemModel model;
+static QImage dropImageTemp;
+
+
 //数据分发 消息处理
 ///////////////////////////////////////文本相关类/////////////////////////////////////////////
 struct MsgTypeDef
@@ -55,6 +62,7 @@ DataCenter::DataCenter(QObject *parent) : QObject(parent)
     connect(&fileHandleThread, &QThread::finished, fileHandle, &QObject::deleteLater);//链接注销,必须链接.否则可能会内存泄露
     connect(&fileHandleThread, &QThread::finished, &imgProcThread, &QObject::deleteLater);//如果是new出来的 得有自杀槽
     fileHandleThread.start();
+
 
 }
 
@@ -288,11 +296,6 @@ void DataCenter::DataInterface(QImage picData)
 
 
 
-//跑道原始图像链表
-static QList<QImage> trackPicsList;//原始图像队列
-static QStandardItemModel model;
-static QImage dropImageTemp;
-
 //处理QList.QUrl.QImage
 void DataCenter::ImgUrlInterface(QList<QUrl> imgUrlList)
 {
@@ -318,7 +321,7 @@ void DataCenter::ImgUrlInterface(QList<QUrl> imgUrlList)
 
         qDebug()<<"Image Size:"<<dropImageTemp.size();
 
-        emit updateImage(dropImageTemp);
+        emit updateImage(&trackPicsList.last());
 
 
         //进入图像处理流程..

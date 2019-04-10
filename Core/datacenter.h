@@ -95,7 +95,7 @@ signals:
     void AddMsgSignal(uint type,QString* msg);
 
     void myTest(QString sKey,QByteArray byteData);
-    void updateImage(QImage image);
+    void updateImage(QImage* image);
     void updateImage2(QImage image);
     void ProcessImage(QImage image);
     void updateReceiveCount(uint16 receiveCount);

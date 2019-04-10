@@ -43,6 +43,10 @@ public:
 
     void Process1(BYTE* imgPtr,LINE startRow,LINE endRow);
 
+    void Process2(BYTE* imgPtr,LINE startRow,LINE endRow);
+
+protected:
+    void timerEvent(QTimerEvent * timeEvent);
 
 signals:
     void UpdateGrayScaleChart(int *chart);

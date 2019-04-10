@@ -27,11 +27,11 @@ ImgProcCore::ImgProcCore(QObject *parent) : QObject(parent)
     qDebug()<<this;
 }
 
-void ImgProcCore::ImageInterface(QImage image)
+void ImgProcCore::ImageInterface(QImage* image)
 {
 
     //imgProc->image = &image;
-    imgProc->UpdateCache(&image);
+    imgProc->UpdateCache(image);
     display->PainterStart();
 
 
@@ -50,18 +50,18 @@ void ImgProcCore::ImageInterface(QImage image)
     //那么首先要进行的是二值化,提取边沿等算法了吧..
 
     QPainter base;
-    QImage cover(image.width(),image.height(),QImage::Format_ARGB32);
+    QImage cover(image->width(),image->height(),QImage::Format_ARGB32);
     base.begin(&cover);//QPainter::begin: Cannot paint on an image with the QImage::Format_Indexed8 format
     //执行算法....
     qDebug()<<"imgProcCore";
-    base.drawImage(QRect(0,0,image.width(),image.height()),image);
+    base.drawImage(QRect(0,0,image->width(),image->height()),*image);
     //base.setPen(QPen(Qt::blue, 2, Qt::SolidLine));
     //base.drawRect(4,5,50,50);
 
 
 
 
-    base.drawImage(QRect(0,0,image.width(),image.height()),*display->H.value("H").cover);
+    base.drawImage(QRect(0,0,image->width(),image->height()),*display->H.value("H").cover);
 
 
     display->PainterEnd();
@@ -125,7 +125,8 @@ void ImgProcCore::PosMoveSlot(QPoint p)
 {
     PointGradTypeDef grad;
     imgProc->SobelOnePoint(imgProc->imgArrayPtr,&grad,p.y(),p.x());
-    strPos = QString("%1 %2").arg(grad.gradY).arg(grad.gradX);
+    strPos = QString("(%1,%2) %3 %4").arg(p.x()).arg(p.y()).arg(grad.gradY).arg(grad.gradX);
+    qDebug()<<strPos;
     //emit AddMsgSignal(0,&strPos);
 
 }
