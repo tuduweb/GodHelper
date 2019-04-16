@@ -81,7 +81,10 @@ void ImgProc::test(void)
 
     Process_OSTU();
 
-    Process2(imgArrayPtr,95,15);
+    //Process2(imgArrayPtr,95,15);
+
+
+    ProcessSimpleCanny(imgArrayPtr,95,15,IMG_LEFT,IMG_RIGHT);
 }
 
 
@@ -258,7 +261,13 @@ void ImgProc::SobelOnePoint(BYTE* imgPtr,PointGradTypeDef* g,LINE row,LINE col)
             + (*imageRaw)[row + 1][col - 1] + ( (*imageRaw)[row + 1][col] << 1 ) + (*imageRaw)[row + 1][col + 1];
 
     g->grad = (int)(( Abs(g->gradX) + Abs(g->gradY) )*1.0f / 2 + 0.5f);
-    g->gradYX = g->gradY*1.0f / g->gradX;
+
+
+    //防止为0的情况
+    if(g->gradX == 0)
+        g->gradYX = g->gradY*1000;
+    else
+        g->gradYX = g->gradY*1.0f / g->gradX;
 }
 //SOBEL梯度跟踪算法
 void ImgProc::Process1(BYTE* imgPtr,LINE startRow,LINE endRow)
@@ -588,6 +597,7 @@ void ImgProc::Process2(BYTE* imgPtr,LINE startRow,LINE endRow)
 struct CannyGradTypeDef{
     int gradX;
     int gradY;
+    int grad;
     float atan;
 };
 
@@ -609,6 +619,141 @@ void ImgProc::ProcessCanny(BYTE* imgPtr,LINE startRow,LINE endRow,LINE startCol,
             grad[row][col].gradX = g.gradX;
             grad[row][col].gradY = g.gradY;
             grad[row][col].atan = atan2(g.gradY,g.gradX);
+        }
+    }
+
+}
+
+//简化版canny by小王
+void ImgProc::ProcessSimpleCanny(BYTE* imgPtr,LINE startRow,LINE endRow,LINE startCol,LINE endCol)
+{
+
+    //基本思路 用阈值取出底部的部分边界...在使用canny提取其中的一条边界...再直接极大值抑制或者使用其他方式.得到唯一的一条连通线
+    //Q:那要是硬性断开了怎么办呢..
+    //那应该就是连不起来了..用常规方法跟线？
+    //那怎么确认?后面的是合格的呢? 不知道啊 TAT
+
+
+    //have a try
+    CannyGradTypeDef grad[IMG_ROW][IMG_COL];
+
+
+    //初始化..
+    memset(borderPic,0,sizeof(borderPic));
+    memset(borderLeft,0,sizeof(borderLeft));
+    memset(borderRight,0,sizeof(borderRight));
+    memset(borderGradX,0,sizeof(borderGradX));
+    memset(borderGradY,0,sizeof(borderGradY));
+    memset(borderGrad,0,sizeof(borderGrad));
+    memset(grad,0,sizeof(grad));
+
+    PointTypeDef lastPoint,prevPoint;
+    PointTypeDef cPoint,lPoint,rPoint;
+    //计算近处全局灰度 隔行 隔列1 0 1 0 1 0 1
+    BYTE (*imageRaw)[120][188] = (uchar (*)[120][188])imgPtr;
+    BYTE* rowPtr = (*imageRaw)[IMG_BOTTOM - 7];
+
+    BYTE th = FastOSTU(rowPtr,IMG_COL,7);//阈值
+
+    //阈值限制.. 这里是大津法动态阈值.如果在十字的情况是会出问题的..所以需要添加判断方法
+
+
+    CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgb(135,206,250)), 1, Qt::SolidLine)));
+
+
+    //初始化..
+    memset(borderPic,0,sizeof(borderPic));
+    memset(borderLeft,0,sizeof(borderLeft));
+    memset(borderRight,0,sizeof(borderRight));
+    memset(borderGradX,0,sizeof(borderGradX));
+    memset(borderGradY,0,sizeof(borderGradY));
+    memset(borderGrad,0,sizeof(borderGrad));
+    prevPoint.x = prevPoint.y = lastPoint.y = lastPoint.x = 0;
+    cPoint.x = cPoint.y = lPoint.x = lPoint.y = rPoint.x = rPoint.y = 0;
+
+    LINE row = startRow;
+    LINE col = IMG_COL/2 - 1;
+
+
+    //大津法判断起始边界 减少运算量
+    //我们有理由相信近处的边界误差较小
+    for(;row >= startRow - 50; --row)
+    {
+        rowPtr = (*imageRaw)[row];
+        //从某一列开始
+        for(col = IMG_COL/2 - 1; col < IMG_COL; col++)
+        {
+            //右边
+#if 1
+            if(rowPtr[col] < th)
+            {
+                display->DrawPoint(col,row);
+                qDebug()<<row<<col;
+                if(borderRight[row] == 0)
+                    borderRight[row] = col;//记录初始点..
+            }
+#endif
+#if 1
+            //右边
+            if(rowPtr[IMG_COL - col] < th)
+            {
+                display->DrawPoint(IMG_COL - col,row);
+                qDebug()<<row<<col;
+                if(borderLeft[row] == 0)
+                    borderLeft[row] = IMG_COL - col;//记录初始点..
+            }
+#endif
+        }
+    }
+
+    PointGradTypeDef g;
+
+    //测试一下代码..先计算其中所有的点的梯度,方向..并且 多计算几个点的..
+    for(row = startRow;row >= startRow - 50;--row)
+    {
+        for(col = borderLeft[row] + 5;col > startCol;--col)
+        {
+            SobelOnePoint(imgPtr,&g,row,col);
+            grad[row][col].gradX = g.gradX;
+            grad[row][col].gradY = g.gradY;
+            grad[row][col].grad = (g.grad > 255 ? 255 : g.grad);
+            grad[row][col].atan = atan2(g.gradY,g.gradX);
+
+            if( col > borderLeft[row])
+            {
+                CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgb(0,grad[row][col].grad,grad[row][col].grad)))));
+            }else{
+                CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgb(grad[row][col].grad,grad[row][col].grad,180)))));
+            }
+
+            CPPCODE(display->DrawPoint(col,row));
+
+        }
+    }
+
+    //非极大值抑制
+    float dTemp1,dTemp2,dTemp;
+    float weight;
+    for( row = startRow - 1; row >= startRow - 50 + 1;--row)
+    {
+        for(col = borderLeft[row + 1] - 1;col > startCol + 1;--col)
+        {
+            dTemp1 = dTemp2 = dTemp = 0;
+
+            //纵轴 x方向.. 而且是上面的减去下面的
+            //横轴 y方向.. 是右边的减去左边的..
+            weight = Absf(grad[row][col].gradX * 1.0f / grad[row][col].gradY);
+            if(weight > 1)
+            {
+                weight = 1 / weight;
+
+                //靠近X轴 X轴是纵轴 ..那么根据正负选择..方向.. 方向..
+                if(grad[row][col].gradX * grad[row][col].gradY > 0)
+                {
+                    // 向右,向下.. 右下
+                    dTemp1 = (*imageRaw)[row][col];
+                }
+            }
         }
     }
 

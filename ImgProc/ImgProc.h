@@ -47,6 +47,10 @@ public:
 
     void ProcessCanny(BYTE* imgPtr,LINE startRow,LINE endRow,LINE startCol,LINE endCol);
 
+
+    void ProcessSimpleCanny(BYTE* imgPtr,LINE startRow,LINE endRow,LINE startCol,LINE endCol);
+
+
 protected:
     void timerEvent(QTimerEvent * timeEvent);
 
