@@ -716,7 +716,7 @@ void ImgProc::ProcessSimpleCanny(BYTE* imgPtr,LINE startRow,LINE endRow,LINE sta
             SobelOnePoint(imgPtr,&g,row,col);
             grad[row][col].gradX = g.gradX;
             grad[row][col].gradY = g.gradY;
-            grad[row][col].grad = (g.grad > 255 ? 255 : g.grad);
+            grad[row][col].grad = (Abs(g.gradY) > 255 ? 255 : Abs(g.gradY));//仅仅使用横向的值测试..
             grad[row][col].atan = atan2(g.gradY,g.gradX);
 
             if( col > borderLeft[row])
@@ -732,28 +732,104 @@ void ImgProc::ProcessSimpleCanny(BYTE* imgPtr,LINE startRow,LINE endRow,LINE sta
     }
 
     //非极大值抑制
+    BYTE g1,g2,g3,g4;
     float dTemp1,dTemp2,dTemp;
-    float weight;
+    float weight = 0;
+    int multiply;
     for( row = startRow - 1; row >= startRow - 50 + 1;--row)
     {
         for(col = borderLeft[row + 1] - 1;col > startCol + 1;--col)
         {
             dTemp1 = dTemp2 = dTemp = 0;
+            g1 = g2 = g3 = g4 = 0;
 
-            //纵轴 x方向.. 而且是上面的减去下面的
-            //横轴 y方向.. 是右边的减去左边的..
-            weight = Absf(grad[row][col].gradX * 1.0f / grad[row][col].gradY);
-            if(weight > 1)
+
+
+
+            if(grad[row][col].gradX == 0)
             {
-                weight = 1 / weight;
+                //梯度为0的情况..
+                //X(竖直)方向梯度为0.. 向着左右
+                g1 = g2 = (*imageRaw)[row][col - 1];
+                g3 = g4 = (*imageRaw)[row][col + 1];
+            }else if(grad[row][col].gradY == 0)
+            {
+                //Y(水平)方向梯度为0.. 向着上下
+                g1 = g2 = (*imageRaw)[row + 1][col];
+                g3 = g4 = (*imageRaw)[row - 1][col];
+            }else{
+                //梯度不为0的情况
 
-                //靠近X轴 X轴是纵轴 ..那么根据正负选择..方向.. 方向..
-                if(grad[row][col].gradX * grad[row][col].gradY > 0)
+                //纵轴 x方向.. 而且是上面的减去下面的
+                //横轴 y方向.. 是右边的减去左边的..
+                weight = Absf(grad[row][col].gradX * 1.0f / grad[row][col].gradY);
+                multiply = grad[row][col].gradX * grad[row][col].gradY > 0;
+
+                if(weight > 1)
                 {
-                    // 向右,向下.. 右下
-                    dTemp1 = (*imageRaw)[row][col];
+                    weight = 1 / weight;
+
+                    //靠近X轴 X轴是纵轴 ..那么根据正负选择..方向.. 方向..
+                    //以下为靠近X轴逻辑 纵轴 . row +- 1
+
+                    if(grad[row][col].gradX * grad[row][col].gradY > 0)
+                    {
+                        // 向右,向下.. 右下 右下点.右 左上点.左
+                        g1 = (*imageRaw)[row + 1][col + 1];
+                        g3 = (*imageRaw)[row - 1][col - 1];
+
+                        g2 = (*imageRaw)[row + 1][col];
+                        g4 = (*imageRaw)[row - 1][col];
+                    }else if(grad[row][col].gradX * grad[row][col].gradY < 0)
+                    {
+                        // < 0 向右.向上.. or 向左.向下
+                        g1 = (*imageRaw)[row + 1][col - 1];
+                        g3 = (*imageRaw)[row - 1][col + 1];
+
+                        g2 = (*imageRaw)[row + 1][col];
+                        g4 = (*imageRaw)[row - 1][col];
+                    }
+
+                }else{
+                    //weight < 1
+
+                    //坐标轴 . 向下 向右为正.
+                    //靠近Y轴 即水平轴
+
+                    if(grad[row][col].gradX * grad[row][col].gradY > 0)
+                    {
+                        // 向右,向下.. 右下 右下点.右 左上点.左
+                        g1 = (*imageRaw)[row + 1][col + 1];
+                        g3 = (*imageRaw)[row - 1][col - 1];
+
+                        g2 = (*imageRaw)[row][col - 1];
+                        g4 = (*imageRaw)[row][col + 1];
+
+                    }else if(grad[row][col].gradX * grad[row][col].gradY < 0)
+                    {
+                        // < 0 向右.向上.. or 向左.向下
+                        g1 = (*imageRaw)[row + 1][col - 1];
+                        g3 = (*imageRaw)[row - 1][col + 1];
+
+                        g2 = (*imageRaw)[row][col - 1];
+                        g4 = (*imageRaw)[row][col + 1];
+                    }
+
+
                 }
-            }
+
+
+
+            }//end if..grad
+
+            //Jugde
+            //weight X/Y
+            dTemp1 = g1 * weight + g2 * (1 - weight);
+            dTemp2 = g3 * weight + g4 * (1 - weight);
+
+
+
+
         }
     }
 
