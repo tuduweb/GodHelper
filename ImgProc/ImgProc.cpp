@@ -625,6 +625,7 @@ void ImgProc::ProcessCanny(BYTE* imgPtr,LINE startRow,LINE endRow,LINE startCol,
 }
 
 //简化版canny by小王
+
 void ImgProc::ProcessSimpleCanny(BYTE* imgPtr,LINE startRow,LINE endRow,LINE startCol,LINE endCol)
 {
 
@@ -716,7 +717,7 @@ void ImgProc::ProcessSimpleCanny(BYTE* imgPtr,LINE startRow,LINE endRow,LINE sta
             SobelOnePoint(imgPtr,&g,row,col);
             grad[row][col].gradX = g.gradX;
             grad[row][col].gradY = g.gradY;
-            grad[row][col].grad = (Abs(g.gradY) > 255 ? 255 : Abs(g.gradY));//仅仅使用横向的值测试..
+            grad[row][col].grad = g.grad;//(Abs(g.gradY) > 255 ? 255 : Abs(g.gradY));//仅仅使用横向的值测试..
             grad[row][col].atan = atan2(g.gradY,g.gradX);
 
             if( col > borderLeft[row])
@@ -732,38 +733,42 @@ void ImgProc::ProcessSimpleCanny(BYTE* imgPtr,LINE startRow,LINE endRow,LINE sta
     }
 
     //非极大值抑制
-    BYTE g1,g2,g3,g4;
+    int g1,g2,g3,g4;
     float dTemp1,dTemp2,dTemp;
     float weight = 0;
     int multiply;
+
+    CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgb(255,255,255)))));
+
+
     for( row = startRow - 1; row >= startRow - 50 + 1;--row)
     {
-        for(col = borderLeft[row + 1] - 1;col > startCol + 1;--col)
+        for(col = borderLeft[row + 1] + 4;col > startCol + 1;--col)
         {
             dTemp1 = dTemp2 = dTemp = 0;
             g1 = g2 = g3 = g4 = 0;
-
-
-
+            weight = 0;
 
             if(grad[row][col].gradX == 0)
             {
                 //梯度为0的情况..
                 //X(竖直)方向梯度为0.. 向着左右
-                g1 = g2 = (*imageRaw)[row][col - 1];
-                g3 = g4 = (*imageRaw)[row][col + 1];
+                g1 = g2 = grad[row][col - 1].grad;//(*imageRaw)[row][col - 1];
+                g3 = g4 = grad[row][col + 1].grad;//(*imageRaw)[row][col + 1];
             }else if(grad[row][col].gradY == 0)
             {
                 //Y(水平)方向梯度为0.. 向着上下
-                g1 = g2 = (*imageRaw)[row + 1][col];
-                g3 = g4 = (*imageRaw)[row - 1][col];
-            }else{
+                g1 = g2 = grad[row + 1][col].grad;//(*imageRaw)[row + 1][col];
+                g3 = g4 = grad[row - 1][col].grad;//(*imageRaw)[row - 1][col];
+            }
+            else
+            {
                 //梯度不为0的情况
 
                 //纵轴 x方向.. 而且是上面的减去下面的
                 //横轴 y方向.. 是右边的减去左边的..
-                weight = Absf(grad[row][col].gradX * 1.0f / grad[row][col].gradY);
-                multiply = grad[row][col].gradX * grad[row][col].gradY > 0;
+                weight = Absf(grad[row][col].gradX * 1.0f / grad[row][col].gradY);//这里已经排除了等于0的情况..
+                multiply = grad[row][col].gradX * grad[row][col].gradY;
 
                 if(weight > 1)
                 {
@@ -772,49 +777,65 @@ void ImgProc::ProcessSimpleCanny(BYTE* imgPtr,LINE startRow,LINE endRow,LINE sta
                     //靠近X轴 X轴是纵轴 ..那么根据正负选择..方向.. 方向..
                     //以下为靠近X轴逻辑 纵轴 . row +- 1
 
-                    if(grad[row][col].gradX * grad[row][col].gradY > 0)
+
+                    //GX > GY靠近竖直轴
+                    if(multiply > 0)
                     {
                         // 向右,向下.. 右下 右下点.右 左上点.左
-                        g1 = (*imageRaw)[row + 1][col + 1];
-                        g3 = (*imageRaw)[row - 1][col - 1];
+                        g1 = grad[row + 1][col + 1].grad;//(*imageRaw)[row + 1][col + 1];
+                        g3 = grad[row - 1][col - 1].grad;//(*imageRaw)[row - 1][col - 1];
 
-                        g2 = (*imageRaw)[row + 1][col];
-                        g4 = (*imageRaw)[row - 1][col];
-                    }else if(grad[row][col].gradX * grad[row][col].gradY < 0)
+                        g2 = grad[row + 1][col].grad;//(*imageRaw)[row + 1][col];
+                        g4 = grad[row - 1][col].grad;//(*imageRaw)[row - 1][col];
+                    }else if(multiply < 0)
                     {
                         // < 0 向右.向上.. or 向左.向下
-                        g1 = (*imageRaw)[row + 1][col - 1];
-                        g3 = (*imageRaw)[row - 1][col + 1];
+                        g1 = grad[row + 1][col - 1].grad;//(*imageRaw)[row + 1][col - 1];
+                        g3 = grad[row - 1][col + 1].grad;//(*imageRaw)[row - 1][col + 1];
 
-                        g2 = (*imageRaw)[row + 1][col];
-                        g4 = (*imageRaw)[row - 1][col];
+                        g2 = grad[row + 1][col].grad;//(*imageRaw)[row + 1][col];
+                        g4 = grad[row - 1][col].grad;//(*imageRaw)[row - 1][col];
                     }
 
-                }else{
+                }else if(weight > 1){
                     //weight < 1
 
                     //坐标轴 . 向下 向右为正.
                     //靠近Y轴 即水平轴
 
-                    if(grad[row][col].gradX * grad[row][col].gradY > 0)
+                    if(multiply > 0)
                     {
                         // 向右,向下.. 右下 右下点.右 左上点.左
-                        g1 = (*imageRaw)[row + 1][col + 1];
-                        g3 = (*imageRaw)[row - 1][col - 1];
+                        g1 = grad[row + 1][col + 1].grad;//(*imageRaw)[row + 1][col + 1];
+                        g3 = grad[row - 1][col - 1].grad;//(*imageRaw)[row - 1][col - 1];
 
-                        g2 = (*imageRaw)[row][col - 1];
-                        g4 = (*imageRaw)[row][col + 1];
 
-                    }else if(grad[row][col].gradX * grad[row][col].gradY < 0)
+                        g2 = grad[row][col + 1].grad;//(*imageRaw)[row + 1][col];
+                        g4 = grad[row][col - 1].grad;//(*imageRaw)[row - 1][col];
+
+                    }else if(multiply < 0)
                     {
                         // < 0 向右.向上.. or 向左.向下
-                        g1 = (*imageRaw)[row + 1][col - 1];
-                        g3 = (*imageRaw)[row - 1][col + 1];
+                        g1 = grad[row + 1][col - 1].grad;//(*imageRaw)[row + 1][col + 1];
+                        g3 = grad[row - 1][col + 1].grad;//(*imageRaw)[row - 1][col - 1];
 
-                        g2 = (*imageRaw)[row][col - 1];
-                        g4 = (*imageRaw)[row][col + 1];
+                        g2 = grad[row][col + 1].grad;//(*imageRaw)[row + 1][col];
+                        g4 = grad[row][col - 1].grad;//(*imageRaw)[row - 1][col];
                     }
 
+
+                }else{
+                    //weight = 1
+                    //相等的情况.那么相邻的正好落在了斜对角上..
+
+                    if(multiply > 0)
+                    {
+                        g1 = g2 = grad[row + 1][col + 1].grad;
+                        g3 = g4 = grad[row - 1][col - 1].grad;
+                    }else{//<0的情况..
+                        g1 = g2 = grad[row + 1][col - 1].grad;
+                        g3 = g4 = grad[row - 1][col + 1].grad;
+                    }
 
                 }
 
@@ -824,11 +845,19 @@ void ImgProc::ProcessSimpleCanny(BYTE* imgPtr,LINE startRow,LINE endRow,LINE sta
 
             //Jugde
             //weight X/Y
+
+            //计算出临时点..
             dTemp1 = g1 * weight + g2 * (1 - weight);
             dTemp2 = g3 * weight + g4 * (1 - weight);
 
+            //点的类型判断.. 当前点 vs 两个临时点..
 
-
+            //点..保留..
+            if(grad[row][col].grad > dTemp1 && grad[row][col].grad > dTemp2)
+            {
+                qDebug()<<QString("(%1,%2)%3 %4 %5").arg(row).arg(col).arg(grad[row][col].grad).arg(dTemp1).arg(dTemp2);
+                CPPCODE(display->DrawPoint(col,row));
+            }
 
         }
     }
