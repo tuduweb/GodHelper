@@ -50,6 +50,9 @@ public:
 
     void ProcessSimpleCanny(BYTE* imgPtr,LINE startRow,LINE endRow,LINE startCol,LINE endCol);
 
+    void GetOnePointSobel(BYTE* imgPtr,PointGradTypeDef* g,LINE row,LINE col);
+    void ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE startCol,LINE endCol);
+
 
 protected:
     void timerEvent(QTimerEvent * timeEvent);
