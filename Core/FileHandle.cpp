@@ -29,7 +29,7 @@ void FileHandle::SaveImage(QImage image)
 
     nameStr.replace("{name}",QString("%1").arg(timeT));
 
-    //image.save("P:/s.bmp");
+    image.save("F:/monitorPics/2019/190504/"+nameStr+".bmp");
 }
 
 bool FileHandle::mkDir(QString fullPath)

@@ -84,7 +84,7 @@ void ImgProc::test(void)
     //Process2(imgArrayPtr,95,15);
 
 
-    ProcessSimpleCannyV2(imgArrayPtr,95,15,IMG_LEFT,IMG_RIGHT);
+    ProcessSimpleCannyV2(imgArrayPtr,IMG_BOTTOM - 10,15,IMG_LEFT,IMG_RIGHT);
 }
 
 
@@ -175,8 +175,8 @@ BYTE FastOSTU(const BYTE* pIn9, int width9, int height9)
     {
         for (j = 0; j < width9; j+=2)
         {
-            pixelCount[(int)data[i * width9 + j]]++;  //将当前的点的像素值作为计数数组的下标
-            gray_sum+=(int)data[i * width9 + j];       //灰度值总和
+            pixelCount[(unsigned char)data[i * width9 + j]]++;  //将当前的点的像素值作为计数数组的下标
+            gray_sum+=(unsigned char)data[i * width9 + j];       //灰度值总和
         }
     }
 
@@ -854,16 +854,10 @@ void ImgProc::ProcessSimpleCanny(BYTE* imgPtr,LINE startRow,LINE endRow,LINE sta
 }
 
 
-void ImgProc::GetOnePointSobel(BYTE* imgPtr,PointGradTypeDef* g,LINE row,LINE col)
-{
-    //0为标志位 为不存在..
-    if(grad[row][col].grad != 0)
-    {
 
 
-    }
-}
 
+#if 0
 void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE startCol,LINE endCol)
 {
 
@@ -871,9 +865,9 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
     PointTypeDef cPoint,lPoint,rPoint;
     //计算近处全局灰度 隔行 隔列1 0 1 0 1 0 1
     BYTE (*imageRaw)[120][188] = (uchar (*)[120][188])imgPtr;
-    BYTE* rowPtr = (*imageRaw)[IMG_BOTTOM - 7];
+    BYTE* rowPtr = (*imageRaw)[IMG_BOTTOM - 30];
 
-    BYTE th = FastOSTU(rowPtr,IMG_COL,7);//阈值
+    BYTE th = FastOSTU(rowPtr,IMG_COL,20);//阈值
 
     //阈值限制.. 这里是大津法动态阈值.如果在十字的情况是会出问题的..所以需要添加判断方法
 
@@ -902,26 +896,26 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
     {
         rowPtr = (*imageRaw)[row];
         //从某一列开始
-        for(col = searchStartCol; col < IMG_COL; col++)
+        for(col = searchStartCol; col < IMG_RIGHT; col++)
         {
             //右边
 #if 1
             if(rowPtr[col] < th)
             {
-                //CPPCODE(display->DrawPoint(col,row));
+                CPPCODE(display->DrawPoint(col,row));
                 //qDebug()<<row<<col;
                 if(borderRight[row] == 0)
                     borderRight[row] = col;//记录初始点..
             }
 #endif
         }
-        for(col = searchStartCol; col > 0; col--)
+        for(col = searchStartCol; col > IMG_LEFT; col--)
         {
 #if 1
             //右边
             if(rowPtr[col] < th)
             {
-                //CPPCODE(display->DrawPoint(col,row));
+                CPPCODE(display->DrawPoint(col,row));
                 //qDebug()<<row<<col;
                 if(borderLeft[row] == 0)
                     borderLeft[row] = col;//记录初始点..
@@ -973,7 +967,8 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
 
     for( row = startRow - 1; row >= startRow - 60 + 1;--row)
     {
-        for(col = borderRight[row + 1] + 4;col > startCol + 1 && col > borderLeft[row + 1] - 4;--col)
+
+        for(col = Limit(borderRight[row + 1] + 20,IMG_LEFT + 1,endCol - 1);col > Limit(borderLeft[row + 1] - 20,startCol + 1,IMG_RIGHT - 1);--col)
         {
             dTemp1 = dTemp2 = dTemp = 0;
             g1 = g2 = g3 = g4 = 0;
@@ -1085,7 +1080,7 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
             //点..保留..
             if(grad[row][col].grad > dTemp1 && grad[row][col].grad > dTemp2 && grad[row][col].grad > th)
             {
-                qDebug()<<QString("(%1,%2)%3 %4 %5").arg(row).arg(col).arg(grad[row][col].grad).arg(dTemp1).arg(dTemp2);
+                //qDebug()<<QString("(%1,%2)%3 %4 %5").arg(row).arg(col).arg(grad[row][col].grad).arg(dTemp1).arg(dTemp2);
                 CPPCODE(display->DrawPoint(col,row));
                 //break;
             }
@@ -1093,5 +1088,339 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
         }
     }
 
+    CPPCODE(qDebug()<<"THTHTH"<<th);
+
 
 }
+#endif
+
+typedef enum{
+    NormalRoad,
+    StartLine,
+    Obstacle,
+    SmallRing,
+    HugeRing,
+    AutoRing,
+    CrossRoad,
+}RoadType_e;
+
+//一些设置..
+typedef struct{
+    uint8 endRow;
+    uint8 startRow;
+}ImageInfoTypeDef;
+
+typedef struct{
+    uint8 endRow;
+    uint8 startRow;
+    float pitchAngle;//图像俯仰角
+
+    //反光处理相关
+
+    //斑马线相关
+    uint8 zebraRow;//找到的斑马线的行数
+    //起跑线相关
+
+    //环岛相关..
+
+    //断路相关
+
+    //障碍相关
+
+}ImageStatusTypeDef;
+
+ImageStatusTypeDef imageStatus;
+ImageInfoTypeDef imageInfo;
+
+PointGradTypeDef grads[IMG_ROW][IMG_COL];
+
+
+
+void ImgProc::GetOnePointSobel(BYTE (*imageRaw)[120][188],PointGradTypeDef* g,LINE row,LINE col)
+{
+    //0为标志位 为不存在..
+    if(grads[row][col].grad != 0)
+    {
+
+    }else{
+
+        //BYTE (*imageRaw)[120][188] = (uchar (*)[120][188])imgPtr;
+
+        grads[row][col].gradY = (*imageRaw)[row - 1][col+1] + ( (*imageRaw)[row][col+1] << 1 ) + (*imageRaw)[row + 1][col + 1]
+                - (*imageRaw)[row - 1][col-1] - ( (*imageRaw)[row][col-1] << 1 ) - (*imageRaw)[row + 1][col - 1];
+
+        grads[row][col].gradX = (*imageRaw)[row + 1][col - 1] + ( (*imageRaw)[row + 1][col] << 1 ) + (*imageRaw)[row + 1][col + 1]
+                -(*imageRaw)[row - 1][col-1] - ( (*imageRaw)[row - 1][col] << 1 ) - (*imageRaw)[row - 1][col + 1];
+
+        grads[row][col].grad = (int)(( Abs(grads[row][col].gradX) + Abs(grads[row][col].gradY) )*1.0f / 2 + 0.5f);
+
+
+        //防止为0的情况
+        if(grads[row][col].gradX == 0)
+            grads[row][col].gradYX = grads[row][col].gradY<<10;//*1024
+        else
+            grads[row][col].gradYX = grads[row][col].gradY*1.0f / grads[row][col].gradX;
+    }
+
+    g = &grads[row][col];
+}
+
+//对某点进行极大值抑制判断..
+PointGradTypeDef *g1,*g2,*g3,*g4;
+float dTemp1,dTemp2,dTemp,weight;
+int multiply;
+uint8 ImgProc::GetOnePointNMS(BYTE (*imageRaw)[120][188], PointGradTypeDef *gs, LINE row, LINE col)
+{
+
+    PointGradTypeDef *g;
+    //得到当前的sobel
+    GetOnePointSobel(imageRaw,g,row,col);
+
+
+
+    dTemp1 = dTemp2 = dTemp = 0;
+    //g1 = g2 = g3 = g4 = g;
+    weight = 0;
+
+
+    if(g->gradX == 0)
+    {
+        //梯度为0的情况..
+        //X(竖直)方向梯度为0.. 向着左右
+        GetOnePointSobel(imageRaw,g1,row,col - 1);
+        GetOnePointSobel(imageRaw,g3,row,col + 1);
+        g1 = g2;//(*imageRaw)[row][col - 1];
+        g3 = g4;//(*imageRaw)[row][col + 1];
+    }else if(g->gradY == 0)
+    {
+        //Y(水平)方向梯度为0.. 向着上下
+        GetOnePointSobel(imageRaw,g1,row + 1,col);
+        GetOnePointSobel(imageRaw,g3,row - 1,col);
+        g1 = g2;//(*imageRaw)[row + 1][col];
+        g3 = g4;//(*imageRaw)[row - 1][col];
+    }
+    else
+    {
+        //梯度不为0的情况
+
+        //纵轴 x方向.. 而且是上面的减去下面的
+        //横轴 y方向.. 是右边的减去左边的..
+        weight = Absf(g->gradYX);//这里已经排除了等于0的情况.. // weight =
+        multiply = g->gradX * g->gradY;
+
+        if(weight < 1)
+        {
+
+            //靠近X轴 X轴是纵轴 ..那么根据正负选择..方向.. 方向..
+            //以下为靠近X轴逻辑 纵轴 . row +- 1
+
+
+            //GX > GY靠近竖直轴
+            if(multiply > 0)
+            {
+                // 向右,向下.. 右下 右下点.右 左上点.左
+                GetOnePointSobel(imageRaw,g1,row + 1,col + 1);
+                GetOnePointSobel(imageRaw,g3,row - 1,col - 1);
+                //g1 = &grads[row + 1][col + 1];//(*imageRaw)[row + 1][col + 1];
+                //g3 = &grads[row - 1][col - 1];//(*imageRaw)[row - 1][col - 1];
+                GetOnePointSobel(imageRaw,g2,row + 1,col);
+                GetOnePointSobel(imageRaw,g4,row - 1,col);
+                //g2 = &grads[row + 1][col];//(*imageRaw)[row + 1][col];
+                //g4 = &grads[row - 1][col];//(*imageRaw)[row - 1][col];
+            }else if(multiply < 0)
+            {
+                // < 0 向右.向上.. or 向左.向下
+                GetOnePointSobel(imageRaw,g1,row + 1,col - 1);
+                GetOnePointSobel(imageRaw,g3,row - 1,col + 1);
+                //g1 = &grads[row + 1][col - 1];//(*imageRaw)[row + 1][col - 1];
+                //g3 = &grads[row - 1][col + 1];//(*imageRaw)[row - 1][col + 1];
+                GetOnePointSobel(imageRaw,g2,row + 1,col);
+                GetOnePointSobel(imageRaw,g4,row - 1,col);
+                //g2 = &grads[row + 1][col];//(*imageRaw)[row + 1][col];
+                //g4 = &grads[row - 1][col];//(*imageRaw)[row - 1][col];
+            }
+
+        }else if(weight > 1){
+            weight = 1 / weight; // < 1
+
+            //坐标轴 . 向下 向右为正.
+            //靠近Y轴 即水平轴
+
+            if(multiply > 0)
+            {
+                // 向右,向下.. 右下 右下点.右 左上点.左
+                GetOnePointSobel(imageRaw,g1,row + 1,col + 1);
+                GetOnePointSobel(imageRaw,g3,row - 1,col - 1);
+                //g1 = &grads[row + 1][col + 1];//(*imageRaw)[row + 1][col + 1];
+                //g3 = &grads[row - 1][col - 1];//(*imageRaw)[row - 1][col - 1];
+
+                GetOnePointSobel(imageRaw,g2,row + 1,col);
+                GetOnePointSobel(imageRaw,g4,row - 1,col);
+                //g2 = &grads[row][col + 1];//(*imageRaw)[row + 1][col];
+                //g4 = &grads[row][col - 1];//(*imageRaw)[row - 1][col];
+
+            }else if(multiply < 0)
+            {
+                // < 0 向右.向上.. or 向左.向下
+                GetOnePointSobel(imageRaw,g1,row + 1,col - 1);
+                GetOnePointSobel(imageRaw,g3,row - 1,col + 1);
+                //g1 = &grads[row + 1][col - 1];//(*imageRaw)[row + 1][col + 1];
+                //g3 = &grads[row - 1][col + 1];//(*imageRaw)[row - 1][col - 1];
+                GetOnePointSobel(imageRaw,g2,row + 1,col);
+                GetOnePointSobel(imageRaw,g4,row - 1,col);
+                //g2 = &grads[row][col + 1];//(*imageRaw)[row + 1][col];
+                //g4 = &grads[row][col - 1];//(*imageRaw)[row - 1][col];
+            }
+
+
+        }else{
+            //weight = 1
+            //相等的情况.那么相邻的正好落在了斜对角上..
+
+            if(multiply > 0)
+            {
+                GetOnePointSobel(imageRaw,g1,row + 1,col + 1);
+                g1 = g2;
+                GetOnePointSobel(imageRaw,g3,row - 1,col - 1);
+                g3 = g4;
+            }else{//<0的情况..
+                GetOnePointSobel(imageRaw,g1,row + 1,col - 1);
+                g1 = g2;
+                GetOnePointSobel(imageRaw,g3,row - 1,col + 1);
+                g3 = g4;
+            }
+
+        }
+
+
+
+    }//end if..grad
+
+    //Jugde
+    //weight X/Y
+
+    //计算出临时点..
+    dTemp1 = g1->grad * weight + g2->grad * (1 - weight);
+    dTemp2 = g3->grad * weight + g4->grad * (1 - weight);
+
+    //点的类型判断.. 当前点 vs 两个临时点..
+
+    //点..保留..
+    if(g->grad > dTemp1 && g->grad > dTemp2 && g->grad)
+    {
+        //在这里只有极大值抑制.
+
+        //qDebug()<<QString("(%1,%2)%3 %4 %5").arg(row).arg(col).arg(grad[row][col].grad).arg(dTemp1).arg(dTemp2);
+        //CPPCODE(display->DrawPoint(col,row));
+        //break;
+        return 'Y';
+    }else{
+        return 'N';
+    }
+
+}
+
+
+
+#if 1
+void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE startCol,LINE endCol)
+{
+
+    //初始化参数..
+    memset(borderPic,0,sizeof(borderPic));
+    memset(borderLeft,0,sizeof(borderLeft));
+    memset(borderRight,0,sizeof(borderRight));
+    memset(borderGradX,0,sizeof(borderGradX));
+    memset(borderGradY,0,sizeof(borderGradY));
+    memset(borderGrad,0,sizeof(borderGrad));
+
+    imageStatus.endRow = endRow;
+
+    //计算近处全局灰度 隔行 隔列1 0 1 0 1 0 1
+    BYTE (*imageRaw)[120][188] = (uchar (*)[120][188])imgPtr;
+    BYTE* rowPtr;
+
+
+    //CPPCODE painter颜色选择
+    CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgb(135,206,250)), 1, Qt::SolidLine)));
+
+    LINE row = startRow;
+    LINE col = IMG_COL/2 - 1;
+
+    LINE searchStartCol = IMG_COL/2 - 1;
+
+    //大津法判断起始边界 减少运算量
+    //我们有理由相信近处的边界误差较小
+    //这里从倒数25行往下的..往下20行
+    BYTE th;//阈值
+//FastOSTU((*imageRaw)[IMG_BOTTOM - 25],IMG_COL,20)
+    //最基本的算法 还需要改进很多东西才能正式应用到小车系统中去。
+    LINE rowTemp;
+    for(;row > startRow - 20;)
+    {
+        th = FastOSTU((*imageRaw)[row - 15],IMG_COL,20);//startRow
+        CPPCODE(qDebug()<<QString("%1->%2 TH:%3").arg(row).arg(row/10*10).arg(th));
+        rowTemp = row/10 * 10;
+        for(;row >= rowTemp;--row)
+        {
+            rowPtr = (*imageRaw)[row];
+            //从某一列开始
+            for(col = searchStartCol; col <= IMG_RIGHT; col++)
+            {
+                //右边
+    #if 1
+                if(rowPtr[col] < th)
+                {
+                    CPPCODE(display->DrawPoint(col,row));
+                    //qDebug()<<row<<col;
+                    if(borderRight[row] == 0)
+                        borderRight[row] = col;//记录初始点..
+                }
+    #endif
+            }
+            if(borderRight[row] == 0)
+                borderRight[row] = col;//记录初始点..
+
+            for(col = searchStartCol; col >= IMG_LEFT; col--)
+            {
+    #if 1
+                //右边
+                if(rowPtr[col] < th)
+                {
+                    CPPCODE(display->DrawPoint(col,row));
+                    //qDebug()<<row<<col;
+                    if(borderLeft[row] == 0)
+                        borderLeft[row] = col;//记录初始点..
+                }
+    #endif
+            }
+            searchStartCol = (borderLeft[row] + borderRight[row])>>1;
+        }
+
+    }
+
+    //这么在这里就找到了 startRow ~ startRow - 20 范围内的边线(使用的大津法)
+    //得到的边线在 borderLeft borderRight 中.
+
+    //如果置信现在搜出来的边线.那么根据现在的边线跟踪搜..?
+    //前五个作为比较用..
+
+    PointGradTypeDef g;
+
+    for(row = startRow - 5; row > imageStatus.endRow; --row)
+    {
+        //右边..
+        for(col = IMG_RIGHT; col > borderRight[row + 1] - 20; --col)
+        {
+            GetOnePointSobel(imageRaw,&g,row,col);
+            //搜索当前点的周围情况..
+        }
+
+        for(col = IMG_LEFT; col < borderLeft[row + 1] + 20; ++col)
+        {
+            //
+        }
+    }
+
+}
+#endif
