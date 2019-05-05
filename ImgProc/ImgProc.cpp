@@ -84,7 +84,7 @@ void ImgProc::test(void)
     //Process2(imgArrayPtr,95,15);
 
 
-    ProcessSimpleCannyV2(imgArrayPtr,IMG_BOTTOM - 10,15,IMG_LEFT,IMG_RIGHT);
+    ProcessSimpleCannyV2(imgArrayPtr,IMG_BOTTOM - 2,35,IMG_LEFT,IMG_RIGHT);
 }
 
 
@@ -1129,8 +1129,49 @@ typedef struct{
 
 }ImageStatusTypeDef;
 
+
+typedef struct
+{
+    //从近处到远处的顺序 startRow > endRow
+    int16_t startRow;
+    int16_t endRow;
+}BreakLineItemTypeDef;
+typedef struct
+{
+    uint8 size;//大小
+    BreakLineItemTypeDef item[5];
+}BreakLineTypeDef;
+
+typedef enum :uint8
+{
+    NoBorder,
+    RealBorder,
+    ContinueFind,
+}JumpPoint_e;
+typedef struct _imgproc_side
+{
+    uint8 borderType[IMG_ROW];
+    int16_t border[IMG_ROW];
+    int16_t noneCnt;
+
+    //拓展
+    BreakLineTypeDef breakLine;
+}IMGPROC_SIDE;
+
+typedef struct _imgproc_struct
+{
+    int16_t endRow;
+
+    IMGPROC_SIDE left;
+    IMGPROC_SIDE right;
+    int16_t middleLine[IMG_ROW];
+    int16_t pathWidth[IMG_ROW];
+    int16_t whiteCnt;//全白行cnt
+}IMGPROC_STRUCT, *IMGPROC_STRUCT_PTR;
+
 ImageStatusTypeDef imageStatus;
 ImageInfoTypeDef imageInfo;
+IMGPROC_STRUCT imgProcData;
 
 PointGradTypeDef grads[IMG_ROW][IMG_COL];
 
@@ -1152,7 +1193,7 @@ void ImgProc::GetOnePointSobel(BYTE (*imageRaw)[120][188],PointGradTypeDef* g,LI
         grads[row][col].gradX = (*imageRaw)[row + 1][col - 1] + ( (*imageRaw)[row + 1][col] << 1 ) + (*imageRaw)[row + 1][col + 1]
                 -(*imageRaw)[row - 1][col-1] - ( (*imageRaw)[row - 1][col] << 1 ) - (*imageRaw)[row - 1][col + 1];
 
-        grads[row][col].grad = (int)(( Abs(grads[row][col].gradX) + Abs(grads[row][col].gradY) )*1.0f / 2 + 0.5f);
+        grads[row][col].grad = (int)(( Abs(grads[row][col].gradX) + Abs(grads[row][col].gradY) )*1.0f / 2 + 0.5f) + 1;
 
 
         //防止为0的情况
@@ -1166,16 +1207,15 @@ void ImgProc::GetOnePointSobel(BYTE (*imageRaw)[120][188],PointGradTypeDef* g,LI
 }
 
 //对某点进行极大值抑制判断..
-PointGradTypeDef *g1,*g2,*g3,*g4;
-float dTemp1,dTemp2,dTemp,weight;
-int multiply;
-uint8 ImgProc::GetOnePointNMS(BYTE (*imageRaw)[120][188], PointGradTypeDef *gs, LINE row, LINE col)
+static PointGradTypeDef g1,g2,g3,g4;
+static float dTemp1,dTemp2,dTemp,weight;
+static int multiply;
+uint8 ImgProc::GetOnePointNMS(BYTE (*imageRaw)[120][188], LINE row, LINE col)
 {
 
-    PointGradTypeDef *g;
+    PointGradTypeDef g;
     //得到当前的sobel
-    GetOnePointSobel(imageRaw,g,row,col);
-
+    GetOnePointSobel(imageRaw,&g,row,col);
 
 
     dTemp1 = dTemp2 = dTemp = 0;
@@ -1183,19 +1223,19 @@ uint8 ImgProc::GetOnePointNMS(BYTE (*imageRaw)[120][188], PointGradTypeDef *gs, 
     weight = 0;
 
 
-    if(g->gradX == 0)
+    if(g.gradX == 0)
     {
         //梯度为0的情况..
         //X(竖直)方向梯度为0.. 向着左右
-        GetOnePointSobel(imageRaw,g1,row,col - 1);
-        GetOnePointSobel(imageRaw,g3,row,col + 1);
+        GetOnePointSobel(imageRaw,&g1,row,col - 1);
+        GetOnePointSobel(imageRaw,&g3,row,col + 1);
         g1 = g2;//(*imageRaw)[row][col - 1];
         g3 = g4;//(*imageRaw)[row][col + 1];
-    }else if(g->gradY == 0)
+    }else if(g.gradY == 0)
     {
         //Y(水平)方向梯度为0.. 向着上下
-        GetOnePointSobel(imageRaw,g1,row + 1,col);
-        GetOnePointSobel(imageRaw,g3,row - 1,col);
+        GetOnePointSobel(imageRaw,&g1,row + 1,col);
+        GetOnePointSobel(imageRaw,&g3,row - 1,col);
         g1 = g2;//(*imageRaw)[row + 1][col];
         g3 = g4;//(*imageRaw)[row - 1][col];
     }
@@ -1205,8 +1245,8 @@ uint8 ImgProc::GetOnePointNMS(BYTE (*imageRaw)[120][188], PointGradTypeDef *gs, 
 
         //纵轴 x方向.. 而且是上面的减去下面的
         //横轴 y方向.. 是右边的减去左边的..
-        weight = Absf(g->gradYX);//这里已经排除了等于0的情况.. // weight =
-        multiply = g->gradX * g->gradY;
+        weight = Absf(g.gradYX);//这里已经排除了等于0的情况.. // weight =
+        multiply = g.gradX * g.gradY;
 
         if(weight < 1)
         {
@@ -1219,23 +1259,23 @@ uint8 ImgProc::GetOnePointNMS(BYTE (*imageRaw)[120][188], PointGradTypeDef *gs, 
             if(multiply > 0)
             {
                 // 向右,向下.. 右下 右下点.右 左上点.左
-                GetOnePointSobel(imageRaw,g1,row + 1,col + 1);
-                GetOnePointSobel(imageRaw,g3,row - 1,col - 1);
+                GetOnePointSobel(imageRaw,&g1,row + 1,col + 1);
+                GetOnePointSobel(imageRaw,&g3,row - 1,col - 1);
                 //g1 = &grads[row + 1][col + 1];//(*imageRaw)[row + 1][col + 1];
                 //g3 = &grads[row - 1][col - 1];//(*imageRaw)[row - 1][col - 1];
-                GetOnePointSobel(imageRaw,g2,row + 1,col);
-                GetOnePointSobel(imageRaw,g4,row - 1,col);
+                GetOnePointSobel(imageRaw,&g2,row + 1,col);
+                GetOnePointSobel(imageRaw,&g4,row - 1,col);
                 //g2 = &grads[row + 1][col];//(*imageRaw)[row + 1][col];
                 //g4 = &grads[row - 1][col];//(*imageRaw)[row - 1][col];
             }else if(multiply < 0)
             {
                 // < 0 向右.向上.. or 向左.向下
-                GetOnePointSobel(imageRaw,g1,row + 1,col - 1);
-                GetOnePointSobel(imageRaw,g3,row - 1,col + 1);
+                GetOnePointSobel(imageRaw,&g1,row + 1,col - 1);
+                GetOnePointSobel(imageRaw,&g3,row - 1,col + 1);
                 //g1 = &grads[row + 1][col - 1];//(*imageRaw)[row + 1][col - 1];
                 //g3 = &grads[row - 1][col + 1];//(*imageRaw)[row - 1][col + 1];
-                GetOnePointSobel(imageRaw,g2,row + 1,col);
-                GetOnePointSobel(imageRaw,g4,row - 1,col);
+                GetOnePointSobel(imageRaw,&g2,row + 1,col);
+                GetOnePointSobel(imageRaw,&g4,row - 1,col);
                 //g2 = &grads[row + 1][col];//(*imageRaw)[row + 1][col];
                 //g4 = &grads[row - 1][col];//(*imageRaw)[row - 1][col];
             }
@@ -1249,25 +1289,25 @@ uint8 ImgProc::GetOnePointNMS(BYTE (*imageRaw)[120][188], PointGradTypeDef *gs, 
             if(multiply > 0)
             {
                 // 向右,向下.. 右下 右下点.右 左上点.左
-                GetOnePointSobel(imageRaw,g1,row + 1,col + 1);
-                GetOnePointSobel(imageRaw,g3,row - 1,col - 1);
+                GetOnePointSobel(imageRaw,&g1,row + 1,col + 1);
+                GetOnePointSobel(imageRaw,&g3,row - 1,col - 1);
                 //g1 = &grads[row + 1][col + 1];//(*imageRaw)[row + 1][col + 1];
                 //g3 = &grads[row - 1][col - 1];//(*imageRaw)[row - 1][col - 1];
 
-                GetOnePointSobel(imageRaw,g2,row + 1,col);
-                GetOnePointSobel(imageRaw,g4,row - 1,col);
+                GetOnePointSobel(imageRaw,&g2,row + 1,col);
+                GetOnePointSobel(imageRaw,&g4,row - 1,col);
                 //g2 = &grads[row][col + 1];//(*imageRaw)[row + 1][col];
                 //g4 = &grads[row][col - 1];//(*imageRaw)[row - 1][col];
 
             }else if(multiply < 0)
             {
                 // < 0 向右.向上.. or 向左.向下
-                GetOnePointSobel(imageRaw,g1,row + 1,col - 1);
-                GetOnePointSobel(imageRaw,g3,row - 1,col + 1);
+                GetOnePointSobel(imageRaw,&g1,row + 1,col - 1);
+                GetOnePointSobel(imageRaw,&g3,row - 1,col + 1);
                 //g1 = &grads[row + 1][col - 1];//(*imageRaw)[row + 1][col + 1];
                 //g3 = &grads[row - 1][col + 1];//(*imageRaw)[row - 1][col - 1];
-                GetOnePointSobel(imageRaw,g2,row + 1,col);
-                GetOnePointSobel(imageRaw,g4,row - 1,col);
+                GetOnePointSobel(imageRaw,&g2,row + 1,col);
+                GetOnePointSobel(imageRaw,&g4,row - 1,col);
                 //g2 = &grads[row][col + 1];//(*imageRaw)[row + 1][col];
                 //g4 = &grads[row][col - 1];//(*imageRaw)[row - 1][col];
             }
@@ -1279,14 +1319,14 @@ uint8 ImgProc::GetOnePointNMS(BYTE (*imageRaw)[120][188], PointGradTypeDef *gs, 
 
             if(multiply > 0)
             {
-                GetOnePointSobel(imageRaw,g1,row + 1,col + 1);
+                GetOnePointSobel(imageRaw,&g1,row + 1,col + 1);
                 g1 = g2;
-                GetOnePointSobel(imageRaw,g3,row - 1,col - 1);
+                GetOnePointSobel(imageRaw,&g3,row - 1,col - 1);
                 g3 = g4;
             }else{//<0的情况..
-                GetOnePointSobel(imageRaw,g1,row + 1,col - 1);
+                GetOnePointSobel(imageRaw,&g1,row + 1,col - 1);
                 g1 = g2;
-                GetOnePointSobel(imageRaw,g3,row - 1,col + 1);
+                GetOnePointSobel(imageRaw,&g3,row - 1,col + 1);
                 g3 = g4;
             }
 
@@ -1300,13 +1340,13 @@ uint8 ImgProc::GetOnePointNMS(BYTE (*imageRaw)[120][188], PointGradTypeDef *gs, 
     //weight X/Y
 
     //计算出临时点..
-    dTemp1 = g1->grad * weight + g2->grad * (1 - weight);
-    dTemp2 = g3->grad * weight + g4->grad * (1 - weight);
+    dTemp1 = g1.grad * weight + g2.grad * (1 - weight);
+    dTemp2 = g3.grad * weight + g4.grad * (1 - weight);
 
     //点的类型判断.. 当前点 vs 两个临时点..
 
     //点..保留..
-    if(g->grad > dTemp1 && g->grad > dTemp2 && g->grad)
+    if(g.grad > dTemp1 && g.grad > dTemp2 && g.grad)
     {
         //在这里只有极大值抑制.
 
@@ -1325,6 +1365,7 @@ uint8 ImgProc::GetOnePointNMS(BYTE (*imageRaw)[120][188], PointGradTypeDef *gs, 
 #if 1
 void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE startCol,LINE endCol)
 {
+    IMGPROC_STRUCT_PTR imgProcDataPtr = &imgProcData;
 
     //初始化参数..
     memset(borderPic,0,sizeof(borderPic));
@@ -1333,6 +1374,8 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
     memset(borderGradX,0,sizeof(borderGradX));
     memset(borderGradY,0,sizeof(borderGradY));
     memset(borderGrad,0,sizeof(borderGrad));
+    memset(grads,0,sizeof(grads));
+    memset(&imgProcData,0,sizeof(imgProcData));
 
     imageStatus.endRow = endRow;
 
@@ -1358,7 +1401,7 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
     LINE rowTemp;
     for(;row > startRow - 20;)
     {
-        th = FastOSTU((*imageRaw)[row - 15],IMG_COL,20);//startRow
+        th = FastOSTU((*imageRaw)[row - 25],IMG_COL,20);//startRow
         CPPCODE(qDebug()<<QString("%1->%2 TH:%3").arg(row).arg(row/10*10).arg(th));
         rowTemp = row/10 * 10;
         for(;row >= rowTemp;--row)
@@ -1373,13 +1416,19 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
                 {
                     CPPCODE(display->DrawPoint(col,row));
                     //qDebug()<<row<<col;
-                    if(borderRight[row] == 0)
-                        borderRight[row] = col;//记录初始点..
+                    if(imgProcDataPtr->right.borderType[row] == NoBorder)
+                    {
+                        imgProcDataPtr->right.borderType[row] = RealBorder;
+                        imgProcDataPtr->right.border[row] = col;
+                    }
                 }
     #endif
             }
-            if(borderRight[row] == 0)
-                borderRight[row] = col;//记录初始点..
+
+            if(imgProcDataPtr->right.borderType[row] == NoBorder)
+            {
+                imgProcDataPtr->right.border[row] = IMG_RIGHT;
+            }
 
             for(col = searchStartCol; col >= IMG_LEFT; col--)
             {
@@ -1389,12 +1438,19 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
                 {
                     CPPCODE(display->DrawPoint(col,row));
                     //qDebug()<<row<<col;
-                    if(borderLeft[row] == 0)
-                        borderLeft[row] = col;//记录初始点..
+                    if(imgProcDataPtr->left.borderType[row] == NoBorder)
+                    {
+                        imgProcDataPtr->left.borderType[row] = RealBorder;
+                        imgProcDataPtr->left.border[row] = col;
+                    }
                 }
     #endif
             }
-            searchStartCol = (borderLeft[row] + borderRight[row])>>1;
+            if(imgProcDataPtr->left.borderType[row] == NoBorder)
+            {
+                imgProcDataPtr->left.border[row] = IMG_LEFT;
+            }
+            searchStartCol = imgProcDataPtr->middleLine[row] = (imgProcDataPtr->left.border[row] + imgProcDataPtr->right.border[row])/2;
         }
 
     }
@@ -1405,21 +1461,71 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
     //如果置信现在搜出来的边线.那么根据现在的边线跟踪搜..?
     //前五个作为比较用..
 
+    CPPCODE(qDebug()<<QString("THTHTH:%1").arg(th));
+
     PointGradTypeDef g;
 
-    for(row = startRow - 5; row > imageStatus.endRow; --row)
+    for(row = startRow - 3; row > imageStatus.endRow; --row)
     {
-        //右边..
-        for(col = IMG_RIGHT; col > borderRight[row + 1] - 20; --col)
-        {
-            GetOnePointSobel(imageRaw,&g,row,col);
-            //搜索当前点的周围情况..
-        }
 
-        for(col = IMG_LEFT; col < borderLeft[row + 1] + 20; ++col)
+        //右边..
+
+        for(col = LimitH(imgProcDataPtr->right.border[row + 1] + 25,IMG_RIGHT - 1); col > LimitL(imgProcDataPtr->right.border[row + 1] - 15,1); --col)
         {
-            //
+            //搜索当前点的周围情况..
+            if( 'Y' == GetOnePointNMS(imageRaw,row,col) && grads[row][col].grad > th * 2 && ((*imageRaw)[row][col - 1] > th * 0.8 || (*imageRaw)[row + 1][col] > th * 0.8) && grads[row][col].gradY < 0)
+            {
+                if(grads[row][col].grad > th * 2 && ((*imageRaw)[row][col - 1] > th * 0.8 || (*imageRaw)[row + 1][col] > th * 0.8) && grads[row][col].gradY < 0)
+                {
+                    CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgba(255,255,255,100)))));
+                    CPPCODE(display->DrawPoint(col,row));
+                    imgProcDataPtr->right.border[row] = col;
+                    break;
+                }else if(grads[row][col].grad > th * 1 && ((*imageRaw)[row][col - 1] > th * 0.8 || (*imageRaw)[row + 1][col] > th * 0.8) && grads[row][col].gradX > 0)
+                {
+                    CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgba(0,255,255,100)))));
+                    CPPCODE(display->DrawPoint(col,row));
+                }
+            }
+
+
         }
+        if(imgProcDataPtr->right.border[row] == 0)
+            imgProcDataPtr->right.border[row] = imgProcDataPtr->right.border[row + 1];
+
+        for(col = LimitL(imgProcDataPtr->left.border[row + 1] - 15,1); col < LimitH(imgProcDataPtr->left.border[row + 1] + 15,IMG_RIGHT - 1); ++col)
+        {
+            //搜索当前点的周围情况..
+            if(row == 41)
+            {
+                imgProcDataPtr->endRow = 0;
+            }
+            if( 'Y' == GetOnePointNMS(imageRaw,row,col))
+            {
+                //常规方法是运用非极大值抑制后采用双阈值..再采用连通域连通.
+
+                //双阈值一般H = 2*L
+                if(grads[row][col].grad > th * 2 && ((*imageRaw)[row][col + 1] > th * 1 || (*imageRaw)[row + 1][col] > th * 1) && grads[row][col].gradY > 0)
+                {
+                    CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgba(255,255,255,100)))));
+                    CPPCODE(display->DrawPoint(col,row));
+                    imgProcDataPtr->left.border[row] = col;
+                    break;
+                }else if(grads[row][col].grad > th * 1)
+                {
+                    CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgba(0,255,255,100)))));
+                    CPPCODE(display->DrawPoint(col,row));
+                }
+
+            }
+            imgProcDataPtr->endRow = 0;
+        }
+        if(imgProcDataPtr->left.border[row] == 0)
+            imgProcDataPtr->left.border[row] = imgProcDataPtr->left.border[row + 1];
+        CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgba(255,255,0,100)))));
+        searchStartCol = imgProcDataPtr->left.border[row] + imgProcDataPtr->right.border[row];
+        CPPCODE(display->DrawPoint(searchStartCol/2,row));
+
     }
 
 }
