@@ -1147,6 +1147,8 @@ typedef enum :uint8
     NoBorder,
     RealBorder,
     ContinueFind,
+    WeakBorder,
+    StrongBorder,
 }JumpPoint_e;
 typedef struct _imgproc_side
 {
@@ -1168,6 +1170,13 @@ typedef struct _imgproc_struct
     int16_t pathWidth[IMG_ROW];
     int16_t whiteCnt;//全白行cnt
 }IMGPROC_STRUCT, *IMGPROC_STRUCT_PTR;
+
+typedef struct
+{
+    LINE row;
+    LINE col;
+}PosTypeDef;
+
 
 ImageStatusTypeDef imageStatus;
 ImageInfoTypeDef imageInfo;
@@ -1360,7 +1369,11 @@ uint8 ImgProc::GetOnePointNMS(BYTE (*imageRaw)[120][188], LINE row, LINE col)
 
 }
 
-
+typedef struct{
+    LINE row;//发生的行数..
+    LINE limitRow;//处理到哪里就失效了.
+    char dir;//'L' / 'R' / Default 0
+}CrossRoadFlagTypeDef;
 
 #if 1
 void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE startCol,LINE endCol)
@@ -1385,7 +1398,8 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
 
 
     //CPPCODE painter颜色选择
-    CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgb(135,206,250)), 1, Qt::SolidLine)));
+    CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(135,206,250,100), 1, Qt::SolidLine)));
+    CPPCODE(display->H.value("H").painter->drawLine(0,endRow,IMG_RIGHT,endRow));
 
     LINE row = startRow;
     LINE col = IMG_COL/2 - 1;
@@ -1465,41 +1479,106 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
 
     PointGradTypeDef g;
 
+    PosTypeDef pLTemp,pRTemp;
+    LINE low,high;
+
+    //初始化十字路处理函数..[CrossRoad:两边都丢线的情况]
+    CrossRoadFlagTypeDef crossRoadFlag;
+    char crossRoadClearFlag = 0;//这里只是一个flag
+    crossRoadFlag.dir = 0;
+    crossRoadFlag.row = 0;
+    crossRoadFlag.limitRow = 0;
+#define CROSSROAD_FIX 0
+
     for(row = startRow - 3; row > imageStatus.endRow; --row)
     {
 
         //右边..
+        pLTemp.row = pRTemp.row = row;
+        high = LimitH(imgProcDataPtr->right.border[row + 1] + 12,IMG_RIGHT - 1);
+        low = LimitL(imgProcDataPtr->right.border[row + 1] - 12,1);
 
-        for(col = LimitH(imgProcDataPtr->right.border[row + 1] + 25,IMG_RIGHT - 1); col > LimitL(imgProcDataPtr->right.border[row + 1] - 15,1); --col)
+        if(row == 37)
+            imgProcDataPtr->endRow = 0;
+
+        for(pRTemp.col = col = high; col > low; --col)
         {
             //搜索当前点的周围情况..
-            if( 'Y' == GetOnePointNMS(imageRaw,row,col) && grads[row][col].grad > th * 2 && ((*imageRaw)[row][col - 1] > th * 0.8 || (*imageRaw)[row + 1][col] > th * 0.8) && grads[row][col].gradY < 0)
+            if( 'Y' == GetOnePointNMS(imageRaw,row,col))
             {
                 if(grads[row][col].grad > th * 2 && ((*imageRaw)[row][col - 1] > th * 0.8 || (*imageRaw)[row + 1][col] > th * 0.8) && grads[row][col].gradY < 0)
                 {
                     CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgba(255,255,255,100)))));
                     CPPCODE(display->DrawPoint(col,row));
                     imgProcDataPtr->right.border[row] = col;
+                    imgProcDataPtr->right.borderType[row] = RealBorder;
                     break;
-                }else if(grads[row][col].grad > th * 1 && ((*imageRaw)[row][col - 1] > th * 0.8 || (*imageRaw)[row + 1][col] > th * 0.8) && grads[row][col].gradX > 0)
+                }else if(grads[row][col].grad > th * 1&& ((*imageRaw)[row][col + 1] > th * 0.8|| (*imageRaw)[row + 1][col] >  th * 0.8) && (grads[row][col].gradY < 0))
                 {
                     CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgba(0,255,255,100)))));
                     CPPCODE(display->DrawPoint(col,row));
+                    if(imgProcDataPtr->right.borderType[row] == WeakBorder)
+                    {
+                        //断开了.且前面的连通..
+                        if(pRTemp.col - col > 1)
+                        {
+                            //break;
+                        }
+                    }else{
+                        imgProcDataPtr->right.borderType[row] = WeakBorder;
+                    }
+                    pRTemp.col = col;
                 }
             }
 
 
         }
+        //弱边沿.
+        if(imgProcDataPtr->right.borderType[row] == WeakBorder)
+        {
+            CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgba(255,0,255,100)))));
+
+            imgProcDataPtr->right.border[row] = pRTemp.col;
+
+            if(((*imageRaw)[row][pRTemp.col - 1]) > th)
+            {
+                CPPCODE(display->DrawPoint(pRTemp.col,row));
+            }else{
+                imgProcDataPtr->right.borderType[row] = ContinueFind;
+            }
+
+        }else if(imgProcDataPtr->right.borderType[row] == NoBorder)
+        {
+            //判断..
+            if(((*imageRaw)[ row ][ (low + high)/2 ]) < th)//黑
+            {
+                imgProcDataPtr->right.border[row] = low;
+                imgProcDataPtr->right.borderType[row] = ContinueFind;
+            }else{
+                imgProcDataPtr->right.border[row] = (low + high) / 2;
+                //imgProcDataPtr->right.borderType[row] = WideBorder;
+            }
+        }else if(imgProcDataPtr->right.borderType[row] == RealBorder)
+        {
+            if(((*imageRaw)[row][pLTemp.col - 1]) < th && ((*imageRaw)[row][pLTemp.col - 2]) < th && ((*imageRaw)[row][pLTemp.col - 3]) < th)
+            {
+                imgProcDataPtr->right.borderType[row] = ContinueFind;
+            }
+        }
+
+
+
+
         if(imgProcDataPtr->right.border[row] == 0)
             imgProcDataPtr->right.border[row] = imgProcDataPtr->right.border[row + 1];
 
-        for(col = LimitL(imgProcDataPtr->left.border[row + 1] - 15,1); col < LimitH(imgProcDataPtr->left.border[row + 1] + 15,IMG_RIGHT - 1); ++col)
+
+        high = LimitH(imgProcDataPtr->left.border[row + 1] + 12,IMG_RIGHT - 1);
+        low = LimitL(imgProcDataPtr->left.border[row + 1] - 12,1);
+        for(pLTemp.col = col = low; col < high; ++col)
         {
             //搜索当前点的周围情况..
-            if(row == 41)
-            {
-                imgProcDataPtr->endRow = 0;
-            }
+\
             if( 'Y' == GetOnePointNMS(imageRaw,row,col))
             {
                 //常规方法是运用非极大值抑制后采用双阈值..再采用连通域连通.
@@ -1510,21 +1589,267 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
                     CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgba(255,255,255,100)))));
                     CPPCODE(display->DrawPoint(col,row));
                     imgProcDataPtr->left.border[row] = col;
+                    imgProcDataPtr->left.borderType[row] = RealBorder;
                     break;
                 }else if(grads[row][col].grad > th * 1)
                 {
                     CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgba(0,255,255,100)))));
                     CPPCODE(display->DrawPoint(col,row));
+                    if(imgProcDataPtr->left.borderType[row] == WeakBorder)
+                    {
+                        //断开了.且前面的连通..
+                        if(pLTemp.col - col < -1)
+                        {
+                            //break;
+                        }
+                    }else{
+                        imgProcDataPtr->left.borderType[row] = WeakBorder;
+                    }
+                    pLTemp.col = col;
                 }
 
             }
             imgProcDataPtr->endRow = 0;
         }
+        if(imgProcDataPtr->left.borderType[row] == WeakBorder)
+        {
+            CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgba(255,0,255,100)))));
+
+            imgProcDataPtr->left.border[row] = pLTemp.col;
+
+            if(((*imageRaw)[row][pLTemp.col + 1]) > th)
+            {
+                CPPCODE(display->DrawPoint(pLTemp.col,row));
+            }else{
+                imgProcDataPtr->left.borderType[row] = ContinueFind;
+            }
+
+        }else if(imgProcDataPtr->left.borderType[row] == NoBorder)
+        {
+            //判断..
+            if(((*imageRaw)[ row ][ (low + high)/2 ]) < th)//黑
+            {
+                imgProcDataPtr->left.border[row] = high;
+                imgProcDataPtr->left.borderType[row] = ContinueFind;
+            }else{
+                imgProcDataPtr->left.border[row] = (low + high) / 2;
+            }
+        }else if(imgProcDataPtr->left.borderType[row] == RealBorder)
+        {
+            if(((*imageRaw)[row][pLTemp.col + 1]) < th && ((*imageRaw)[row][pLTemp.col + 2]) < th && ((*imageRaw)[row][pLTemp.col + 3]) < th)
+            {
+                imgProcDataPtr->left.borderType[row] = ContinueFind;
+            }
+        }
+
         if(imgProcDataPtr->left.border[row] == 0)
             imgProcDataPtr->left.border[row] = imgProcDataPtr->left.border[row + 1];
+
+#if 1
+
+        if(ContinueFind == imgProcDataPtr->left.borderType[row] || ContinueFind == imgProcDataPtr->right.borderType[row])
+        {
+
+            if(imgProcDataPtr->left.borderType[row] == ContinueFind)
+            {
+                //Left  ContinueFind
+
+                //从新开始搜索
+                for(LINE Xsite = imgProcDataPtr->left.border[row] + 1;Xsite <= imgProcDataPtr->right.border[row] - 1;Xsite++)
+                {
+                    if( (*imageRaw)[row][Xsite] <= th && (*imageRaw)[row][Xsite + 1] > th )
+                    {
+                        imgProcDataPtr->left.border[row] = Xsite;
+                        imgProcDataPtr->left.borderType[row] = RealBorder;
+                        CPPCODE(display->DrawPoint(Xsite,row));
+
+                        break;
+                    }else if((*imageRaw)[row][Xsite + 1] > th)
+                    {
+                        break;
+                    }else if(Xsite == imgProcDataPtr->right.border[row] - 1)
+                    {
+                        imgProcDataPtr->left.border[row] = Xsite;
+                        imgProcDataPtr->left.borderType[row] = RealBorder;
+                        CPPCODE(display->DrawPoint(Xsite,row));
+
+                        break;
+                    }
+
+
+                }
+
+            }
+
+            if(imgProcDataPtr->right.border[row] - imgProcDataPtr->left.border[row] <= 10)
+            {
+                imageStatus.endRow = row + 1;
+            }
+
+            if(imgProcDataPtr->right.borderType[row] == ContinueFind){
+                //Right ContinueFind
+                for(LINE Xsite = imgProcDataPtr->right.border[row] - 1;Xsite >= imgProcDataPtr->left.border[row] + 1;Xsite--)
+                {
+                    if( (*imageRaw)[row][Xsite] <= th && (*imageRaw)[row][Xsite - 1] > th )
+                    {
+                        imgProcDataPtr->right.border[row] = Xsite;
+                        imgProcDataPtr->right.borderType[row] = RealBorder;
+                    }else if((*imageRaw)[row][Xsite - 1] > th)
+                    {
+                        break;
+                    }else if(Xsite == imgProcDataPtr->left.border[row] + 1)
+                    {
+                        imgProcDataPtr->right.border[row] = Xsite;
+                        imgProcDataPtr->right.borderType[row] = RealBorder;
+                        break;
+                    }
+                    CPPCODE(display->DrawPoint(Xsite,row));
+
+                }
+
+
+            }
+
+        }
+
+#endif
+
+
+
+#if 1        //处理折点..
+        if(row <= 100)
+        {
+
+
+            if(imgProcDataPtr->left.borderType[row] != NoBorder)
+            {
+                if(row == 50)
+                    imgProcDataPtr->endRow = 0;//临时断点
+
+                if(imgProcDataPtr->left.border[row] - imgProcDataPtr->left.border[row + 4] <= -8\
+                        && imgProcDataPtr->left.border[row + 4] - imgProcDataPtr->left.border[row + 8] >= 3)
+                {
+                    //这个循环下如果没找到是不是可以加一个flag呢..如果另外一边找到了这种情况再回头来清flag
+                    //为什么需要这么搞呢?感觉是怕拐弯的时候也给补线了..
+                    crossRoadClearFlag = 'F';
+
+                    for (int16_t yTemp = row; yTemp <= row + 5; ++yTemp)
+                    {
+                        if (imgProcDataPtr->right.borderType[row] != RealBorder)
+                        {
+                            CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(Qt::blue))));
+                            crossRoadClearFlag = 'T';
+                            for (yTemp = (row + 4); yTemp >= row; --yTemp)
+                            {
+                                //消除左边的折点
+                                imgProcDataPtr->left.border[yTemp] = 2 * imgProcDataPtr->left.border[yTemp + 1] - imgProcDataPtr->left.border[yTemp + 2];
+                                //折线上点的状态改变
+                                imgProcDataPtr->left.borderType[yTemp] = NoBorder;
+                                CPPCODE(display->DrawPoint(imgProcDataPtr->left.border[yTemp],yTemp));
+                            }
+                            //改变状态
+                            imgProcDataPtr->whiteCnt += 4;
+
+                            //判断是否有..然后执行
+                            if(crossRoadFlag.dir == 'R' && row > crossRoadFlag.limitRow)
+                            {
+                                for(yTemp = crossRoadFlag.row + 4;yTemp >= row;--yTemp)
+                                {
+                                    //消除左边的折点
+                                    imgProcDataPtr->right.border[yTemp] = 2 * imgProcDataPtr->right.border[yTemp + 1] - imgProcDataPtr->right.border[yTemp + 2];
+                                    //折线上点的状态改变
+                                    imgProcDataPtr->right.borderType[yTemp] = NoBorder;
+                                    CPPCODE(display->DrawPoint(imgProcDataPtr->right.border[yTemp],yTemp));
+                                }
+                            }
+
+
+                            break;//break break
+                        }
+                    }
+
+                    //在所有判断完之后加上当前的信息..
+#if(CROSSROAD_FIX == 1)
+                    crossRoadFlag.dir = 'L';
+#endif
+                    if(crossRoadClearFlag == 'F')
+                    {
+                        crossRoadFlag.row = row;
+                        crossRoadFlag.limitRow = row - 10;
+                    }else{
+                        crossRoadFlag.row = crossRoadFlag.limitRow = row;
+                    }
+
+
+                }
+            }
+
+
+            if(imgProcDataPtr->right.borderType[row] != NoBorder)
+            {
+                if(imgProcDataPtr->right.border[row] - imgProcDataPtr->right.border[row + 4] >= 8\
+                        && imgProcDataPtr->right.border[row + 4] - imgProcDataPtr->right.border[row + 8] <= 3)
+                {
+                    crossRoadClearFlag = 'F';
+
+                    for (int16_t yTemp = row; yTemp <= row + 5; ++yTemp)
+                    {
+                        if (imgProcDataPtr->left.borderType[row] != RealBorder)
+                        {
+                            CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(Qt::blue))));
+
+                            for (yTemp = (row + 4); yTemp >= row; --yTemp)
+                            {
+                                //消除左边的折点
+                                imgProcDataPtr->right.border[yTemp] = 2 * imgProcDataPtr->right.border[yTemp + 1] - imgProcDataPtr->right.border[yTemp + 2];
+                                //折线上点的状态改变
+                                imgProcDataPtr->right.borderType[yTemp] = NoBorder;
+                                CPPCODE(display->DrawPoint(imgProcDataPtr->right.border[yTemp],yTemp));
+                            }
+                            //改变状态
+                            imgProcDataPtr->whiteCnt += 4;
+
+                            //判断是否有..然后执行
+                            if(crossRoadFlag.dir == 'L' && row > crossRoadFlag.limitRow)
+                            {
+                                for(yTemp = crossRoadFlag.row + 4;yTemp >= row;--yTemp)
+                                {
+                                    //消除左边的折点
+                                    imgProcDataPtr->left.border[yTemp] = 2 * imgProcDataPtr->left.border[yTemp + 1] - imgProcDataPtr->left.border[yTemp + 2];
+                                    //折线上点的状态改变
+                                    imgProcDataPtr->left.borderType[yTemp] = NoBorder;
+                                    CPPCODE(display->DrawPoint(imgProcDataPtr->left.border[yTemp],yTemp));
+                                }
+                            }
+
+                            break;
+                        }
+                    }
+
+                    //在所有判断完之后加上当前的信息..
+#if(CROSSROAD_FIX == 1)
+                    crossRoadFlag.dir = 'R';
+#endif
+                    if(crossRoadClearFlag == 'F')
+                    {
+                        crossRoadFlag.row = row;
+                        crossRoadFlag.limitRow = row - 10;
+                    }else{
+                        crossRoadFlag.row = crossRoadFlag.limitRow = row;
+                    }
+
+                }
+            }
+
+        }
+#endif
+
+
+
+
         CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgba(255,255,0,100)))));
-        searchStartCol = imgProcDataPtr->left.border[row] + imgProcDataPtr->right.border[row];
-        CPPCODE(display->DrawPoint(searchStartCol/2,row));
+        imgProcDataPtr->middleLine[row] = searchStartCol = (imgProcDataPtr->left.border[row] + imgProcDataPtr->right.border[row])/2;
+        CPPCODE(display->DrawPoint(searchStartCol,row));
 
     }
 

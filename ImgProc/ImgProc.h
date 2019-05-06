@@ -10,7 +10,7 @@
 //#define IsBlack(row,col)
 
 typedef unsigned char BYTE;
-typedef int LINE;
+typedef int16_t LINE;
 
 struct PointGradTypeDef
 {
