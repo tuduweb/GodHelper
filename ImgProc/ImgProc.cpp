@@ -75,7 +75,7 @@ void ImgProc::test(void)
     GetGrayScale(imgArrayPtr,grayScale);
 
     display->H.value("H").painter->setPen(QPen(Qt::white, 20, Qt::SolidLine));
-    display->H.value("H").painter->drawText(100,50,QString("%1").arg(testNum++));
+    display->H.value("H").painter->drawText(IMG_COL /2  - 10,10,QString("%1").arg(testNum++));
 
     qDebug()<<grayScale;
 
@@ -1145,14 +1145,15 @@ typedef struct
 typedef enum :uint8
 {
     NoBorder,
-    RealBorder,
+    TempBorder,
     ContinueFind,
     WeakBorder,
     StrongBorder,
+    RealBorder,
 }JumpPoint_e;
 typedef struct _imgproc_side
 {
-    uint8 borderType[IMG_ROW];
+    JumpPoint_e borderType[IMG_ROW];
     int16_t border[IMG_ROW];
     int16_t noneCnt;
 
@@ -1413,10 +1414,18 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
 //FastOSTU((*imageRaw)[IMG_BOTTOM - 25],IMG_COL,20)
     //最基本的算法 还需要改进很多东西才能正式应用到小车系统中去。
     LINE rowTemp;
-    for(;row > startRow - 20;)
+    for(;row > startRow - 8;)
     {
         th = FastOSTU((*imageRaw)[row - 25],IMG_COL,20);//startRow
-        CPPCODE(qDebug()<<QString("%1->%2 TH:%3").arg(row).arg(row/10*10).arg(th));
+        if(th > 90)
+        {
+            //这里的限制值应该根据前面正确的阈值动态选择吧..手动设置的呀应该只是最极端情况下的限制值?
+            //th = 90;
+            //阈值限制..
+            CPPCODE(qDebug()<<QString("%1->%2 TH:%3 -> <<Threshold Limit>>").arg(row).arg(row/10*10).arg(th));
+        }else{
+            CPPCODE(qDebug()<<QString("%1->%2 TH:%3").arg(row).arg(row/10*10).arg(th));
+        }
         rowTemp = row/10 * 10;
         for(;row >= rowTemp;--row)
         {
@@ -1432,7 +1441,7 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
                     //qDebug()<<row<<col;
                     if(imgProcDataPtr->right.borderType[row] == NoBorder)
                     {
-                        imgProcDataPtr->right.borderType[row] = RealBorder;
+                        imgProcDataPtr->right.borderType[row] = TempBorder;
                         imgProcDataPtr->right.border[row] = col;
                     }
                 }
@@ -1454,7 +1463,7 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
                     //qDebug()<<row<<col;
                     if(imgProcDataPtr->left.borderType[row] == NoBorder)
                     {
-                        imgProcDataPtr->left.borderType[row] = RealBorder;
+                        imgProcDataPtr->left.borderType[row] = TempBorder;
                         imgProcDataPtr->left.border[row] = col;
                     }
                 }
@@ -1498,7 +1507,7 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
         high = LimitH(imgProcDataPtr->right.border[row + 1] + 12,IMG_RIGHT - 1);
         low = LimitL(imgProcDataPtr->right.border[row + 1] - 12,1);
 
-        if(row == 37)
+        if(row == 44)
             imgProcDataPtr->endRow = 0;
 
         for(pRTemp.col = col = high; col > low; --col)
@@ -1560,7 +1569,7 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
             }
         }else if(imgProcDataPtr->right.borderType[row] == RealBorder)
         {
-            if(((*imageRaw)[row][pLTemp.col - 1]) < th && ((*imageRaw)[row][pLTemp.col - 2]) < th && ((*imageRaw)[row][pLTemp.col - 3]) < th)
+            if(((*imageRaw)[row][imgProcDataPtr->right.border[row] - 1]) <= th && ((*imageRaw)[row][imgProcDataPtr->right.border[row] - 2]) <= th && ((*imageRaw)[row][imgProcDataPtr->right.border[row] - 3]) <= th)
             {
                 imgProcDataPtr->right.borderType[row] = ContinueFind;
             }
@@ -1627,7 +1636,7 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
         }else if(imgProcDataPtr->left.borderType[row] == NoBorder)
         {
             //判断..
-            if(((*imageRaw)[ row ][ (low + high)/2 ]) < th)//黑
+            if(((*imageRaw)[ row ][ (low + high)/2 ]) <= th)//黑色 小于阈值.. 这个值还是得重新选取啊.不然就翻车了..我擦..
             {
                 imgProcDataPtr->left.border[row] = high;
                 imgProcDataPtr->left.borderType[row] = ContinueFind;
@@ -1636,7 +1645,8 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
             }
         }else if(imgProcDataPtr->left.borderType[row] == RealBorder)
         {
-            if(((*imageRaw)[row][pLTemp.col + 1]) < th && ((*imageRaw)[row][pLTemp.col + 2]) < th && ((*imageRaw)[row][pLTemp.col + 3]) < th)
+            //..这里是什么?
+            if(((*imageRaw)[row][imgProcDataPtr->left.border[row] + 1]) <= th && ((*imageRaw)[row][imgProcDataPtr->left.border[row] + 2]) <= th && ((*imageRaw)[row][imgProcDataPtr->left.border[row] + 3]) <= th)
             {
                 imgProcDataPtr->left.borderType[row] = ContinueFind;
             }
@@ -1688,23 +1698,25 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
 
             if(imgProcDataPtr->right.borderType[row] == ContinueFind){
                 //Right ContinueFind
+                CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(255,140,0,200))));
                 for(LINE Xsite = imgProcDataPtr->right.border[row] - 1;Xsite >= imgProcDataPtr->left.border[row] + 1;Xsite--)
                 {
-                    if( (*imageRaw)[row][Xsite] <= th && (*imageRaw)[row][Xsite - 1] > th )
+                    if( (*imageRaw)[row][Xsite] <= th && (*imageRaw)[row][Xsite - 1] > th)
                     {
                         imgProcDataPtr->right.border[row] = Xsite;
+                        CPPCODE(display->DrawPoint(Xsite,row));
                         imgProcDataPtr->right.borderType[row] = RealBorder;
                     }else if((*imageRaw)[row][Xsite - 1] > th)
                     {
+                        CPPCODE(display->DrawPoint(Xsite,row));
                         break;
                     }else if(Xsite == imgProcDataPtr->left.border[row] + 1)
                     {
                         imgProcDataPtr->right.border[row] = Xsite;
                         imgProcDataPtr->right.borderType[row] = RealBorder;
+                        CPPCODE(display->DrawPoint(Xsite,row));
                         break;
                     }
-                    CPPCODE(display->DrawPoint(Xsite,row));
-
                 }
 
 
@@ -1847,10 +1859,97 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
 
 
 
-        CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgba(255,255,0,100)))));
-        imgProcDataPtr->middleLine[row] = searchStartCol = (imgProcDataPtr->left.border[row] + imgProcDataPtr->right.border[row])/2;
-        CPPCODE(display->DrawPoint(searchStartCol,row));
+        searchStartCol = (imgProcDataPtr->left.border[row] + imgProcDataPtr->right.border[row])/2;
 
+    }
+
+    for(LINE Ysite = startRow;Ysite > imageStatus.endRow;Ysite--)
+    {
+        CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(240,128,128,200))));
+
+        if(imgProcDataPtr->left.borderType[Ysite] == NoBorder)
+        {
+            CPPCODE(display->DrawPoint(IMG_LEFT,Ysite));
+        }
+
+        if(imgProcDataPtr->right.borderType[Ysite] == NoBorder)
+        {
+            CPPCODE(display->DrawPoint(IMG_RIGHT,Ysite));
+        }
+    }
+
+    //尝试补线..补线程序..
+    int       TFSite = startRow, FTSite = startRow,ytemp;
+    float     DetR = 0, DetL = 0;
+    CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(255,255,255,200))));
+    for(LINE Ysite = startRow - 5;Ysite >= imageStatus.endRow;Ysite--)
+    {
+        if(imgProcDataPtr->left.borderType[Ysite] == NoBorder)
+        {
+            if(imgProcDataPtr->left.border[Ysite + 1] >= IMG_RIGHT - 20)
+            {
+                imageStatus.endRow = Ysite + 1;
+            }
+            while(Ysite >= imageStatus.endRow + 2)
+            {
+                Ysite--;
+                if(imgProcDataPtr->left.borderType[Ysite] == RealBorder && imgProcDataPtr->left.borderType[Ysite - 1] == RealBorder && imgProcDataPtr->left.borderType[Ysite - 2] == RealBorder)
+                {
+                    FTSite = Ysite - 2;
+                    break;
+                }
+            }
+
+            DetL = ((float)(imgProcDataPtr->left.border[FTSite] - imgProcDataPtr->left.border[TFSite]) / ((float)FTSite - TFSite));
+            for(ytemp = TFSite;ytemp >= FTSite;ytemp--)
+            {
+                imgProcDataPtr->left.border[ytemp] = (LINE)(DetL * ((float)(ytemp - TFSite))) + imgProcDataPtr->left.border[TFSite];
+                CPPCODE(display->DrawPoint(imgProcDataPtr->left.border[ytemp],ytemp));
+            }
+
+        }else{
+            TFSite = Ysite + 2;
+        }
+    }
+
+    TFSite = startRow, FTSite = startRow;
+
+    for(LINE Ysite = startRow - 5;Ysite >= imageStatus.endRow;Ysite--)
+    {
+        if(imgProcDataPtr->right.borderType[Ysite] == NoBorder)
+        {
+            if(imgProcDataPtr->right.border[Ysite + 1] <= IMG_LEFT + 20)
+            {
+                imageStatus.endRow = Ysite + 1;
+            }
+            while(Ysite >= imageStatus.endRow + 2)
+            {
+                Ysite--;
+                if(imgProcDataPtr->right.borderType[Ysite] == RealBorder && imgProcDataPtr->right.borderType[Ysite - 1] == RealBorder && imgProcDataPtr->right.borderType[Ysite - 2] == RealBorder)
+                {
+                    FTSite = Ysite - 2;
+                    break;
+                }
+            }
+
+            DetR = ((float)(imgProcDataPtr->right.border[FTSite] - imgProcDataPtr->right.border[TFSite]) / ((float)FTSite - TFSite));
+            for(ytemp = TFSite;ytemp >= FTSite;ytemp--)
+            {
+                imgProcDataPtr->right.border[ytemp] = (LINE)(DetR * ((float)(ytemp - TFSite))) + imgProcDataPtr->right.border[TFSite];
+                CPPCODE(display->DrawPoint(imgProcDataPtr->right.border[ytemp],ytemp));
+            }
+
+        }else{
+            TFSite = Ysite + 2;
+        }
+    }
+
+    CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgba(255,255,0,100)))));
+
+    for(LINE Ysite = startRow;Ysite > imageStatus.endRow;Ysite--)
+    {
+        imgProcDataPtr->middleLine[Ysite] = (imgProcDataPtr->left.border[Ysite] + imgProcDataPtr->right.border[Ysite])/2;
+        CPPCODE(display->DrawPoint(imgProcDataPtr->middleLine[Ysite],Ysite));
     }
 
 }
