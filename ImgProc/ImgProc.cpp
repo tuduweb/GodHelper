@@ -260,7 +260,7 @@ void ImgProc::SobelOnePoint(BYTE* imgPtr,PointGradTypeDef* g,LINE row,LINE col)
     g->gradX = -(*imageRaw)[row - 1][col-1] - ( (*imageRaw)[row - 1][col] << 1 ) - (*imageRaw)[row - 1][col+1]
             + (*imageRaw)[row + 1][col - 1] + ( (*imageRaw)[row + 1][col] << 1 ) + (*imageRaw)[row + 1][col + 1];
 
-    g->grad = (int)(( Abs(g->gradX) + Abs(g->gradY) )*1.0f / 2 + 0.5f);
+    g->grad = (int)Abs(g->gradY)+1;//(( Abs(g->gradX) + Abs(g->gradY) )*1.0f / 2 + 0.5f);
 
 
     //防止为0的情况
@@ -1376,6 +1376,82 @@ typedef struct{
     char dir;//'L' / 'R' / Default 0
 }CrossRoadFlagTypeDef;
 
+//阈值分割
+#define AREA_THRESHOLD_SIZE 4
+#define THRESHOLD_MAX 90
+#define THRESHOLD_MIN 55
+typedef struct{
+    LINE startRow;
+    struct{
+        LINE start;
+        LINE end;
+    }range;
+    BYTE threshold;
+}AreaThresholdTypeDef;
+
+//static BYTE thresholdArray[20] = {0};
+static AreaThresholdTypeDef areaThresholdRules[AREA_THRESHOLD_SIZE + 1] = {
+    { IMG_BOTTOM , { IMG_BOTTOM - 10 , IMG_BOTTOM - 26 } , 0 },
+    { IMG_BOTTOM - 20 , { IMG_BOTTOM - 25 , IMG_BOTTOM - 45 }, 0 },
+    { IMG_BOTTOM - 50 , { IMG_BOTTOM - 40 , IMG_BOTTOM - 70 }, 0 },
+    { IMG_BOTTOM - 70 , { IMG_BOTTOM - 65 , IMG_BOTTOM - 80 }, 0 },
+    { IMG_TOP , { 0 , 0 }, 0 },
+};
+//最好的办法是初始化的时候建立映射表..
+BYTE ImgProc::GetAreaThreshold(BYTE (*imageRaw)[120][188],LINE row,LINE col)
+{
+    //白色 高阈值 黑色 低阈值
+    //划分区域. end 34 9...
+    /////////////////////////////////////////
+#if 1
+    //动态方法 不建立映射表
+    for(int i = 0;i < AREA_THRESHOLD_SIZE;++i)
+    {
+        //确定当前的分割范围..
+        if(row <= areaThresholdRules[i].startRow && row > areaThresholdRules[i + 1].startRow)
+        {
+            if(areaThresholdRules[i].threshold == 0)
+            {
+                areaThresholdRules[i].threshold = FastOSTU((*imageRaw)[areaThresholdRules[i].range.end],IMG_COL,areaThresholdRules[i].range.start - areaThresholdRules[i].range.end);
+                if(areaThresholdRules[i].threshold > THRESHOLD_MAX)
+                {
+                    //这里的限制值应该根据前面正确的阈值动态选择吧..手动设置的呀应该只是最极端情况下的限制值?
+                    areaThresholdRules[i].threshold = THRESHOLD_MAX;
+                    //阈值限制..
+                    CPPCODE(qDebug()<<QString("%1->%2 TH:%3 -> <<Threshold Limit>>").arg(areaThresholdRules[i].range.start).arg(areaThresholdRules[i].range.end).arg(areaThresholdRules[i].threshold));
+                }else if(areaThresholdRules[i].threshold < THRESHOLD_MIN)
+                {
+                    //这里的限制值应该根据前面正确的阈值动态选择吧..手动设置的呀应该只是最极端情况下的限制值?
+                    areaThresholdRules[i].threshold = THRESHOLD_MIN;
+                    //阈值限制..
+                    CPPCODE(qDebug()<<QString("%1->%2 TH:%3 -> <<Threshold Limit>>").arg(areaThresholdRules[i].range.start).arg(areaThresholdRules[i].range.end).arg(areaThresholdRules[i].threshold));
+                }else{
+                    CPPCODE(qDebug()<<QString("%1->%2 TH:%3").arg(areaThresholdRules[i].range.start).arg(areaThresholdRules[i].range.end).arg(areaThresholdRules[i].threshold));
+                }
+            }
+            return areaThresholdRules[i].threshold;
+        }
+    }
+    return THRESHOLD_MIN;
+#endif
+}
+
+BYTE areaThresholdMap[IMG_ROW] = {THRESHOLD_MAX};
+
+void ImgProc::CreateAreaThresholdMap(BYTE (*imageRaw)[120][188])
+{
+    //清空..
+    for(int i = 0;i < AREA_THRESHOLD_SIZE;++i)
+    {
+        areaThresholdRules[i].threshold = 0;
+    }
+    //这里是上位机方法..方便更改代码.用到小车中需要换代码..
+    for(LINE row = IMG_BOTTOM; row > IMG_TOP; --row)
+    {
+        areaThresholdMap[row] = GetAreaThreshold(imageRaw,row,0);
+    }
+}
+
 #if 1
 void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE startCol,LINE endCol)
 {
@@ -1407,6 +1483,11 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
 
     LINE searchStartCol = IMG_COL/2 - 1;
 
+    //建立Map
+    areaThresholdRules[4].startRow = endRow - 1;
+    CreateAreaThresholdMap(imageRaw);
+    imgProcDataPtr->endRow = 0;
+
     //大津法判断起始边界 减少运算量
     //我们有理由相信近处的边界误差较小
     //这里从倒数25行往下的..往下20行
@@ -1414,21 +1495,10 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
 //FastOSTU((*imageRaw)[IMG_BOTTOM - 25],IMG_COL,20)
     //最基本的算法 还需要改进很多东西才能正式应用到小车系统中去。
     LINE rowTemp;
-    for(;row > startRow - 8;)
+    for(;row > startRow - 8;--row)
     {
-        th = FastOSTU((*imageRaw)[row - 25],IMG_COL,20);//startRow
-        if(th > 90)
-        {
-            //这里的限制值应该根据前面正确的阈值动态选择吧..手动设置的呀应该只是最极端情况下的限制值?
-            //th = 90;
-            //阈值限制..
-            CPPCODE(qDebug()<<QString("%1->%2 TH:%3 -> <<Threshold Limit>>").arg(row).arg(row/10*10).arg(th));
-        }else{
-            CPPCODE(qDebug()<<QString("%1->%2 TH:%3").arg(row).arg(row/10*10).arg(th));
-        }
-        rowTemp = row/10 * 10;
-        for(;row >= rowTemp;--row)
-        {
+        th = areaThresholdMap[row];
+
             rowPtr = (*imageRaw)[row];
             //从某一列开始
             for(col = searchStartCol; col <= IMG_RIGHT; col++)
@@ -1474,7 +1544,6 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
                 imgProcDataPtr->left.border[row] = IMG_LEFT;
             }
             searchStartCol = imgProcDataPtr->middleLine[row] = (imgProcDataPtr->left.border[row] + imgProcDataPtr->right.border[row])/2;
-        }
 
     }
 
@@ -1483,8 +1552,6 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
 
     //如果置信现在搜出来的边线.那么根据现在的边线跟踪搜..?
     //前五个作为比较用..
-
-    CPPCODE(qDebug()<<QString("THTHTH:%1").arg(th));
 
     PointGradTypeDef g;
 
@@ -1497,17 +1564,22 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
     crossRoadFlag.dir = 0;
     crossRoadFlag.row = 0;
     crossRoadFlag.limitRow = 0;
+
+    CrossRoadFlagTypeDef crossroadLeftFlag,crossRoadRightFlag;
+    crossroadLeftFlag.dir = crossRoadRightFlag.dir = 0;
+    crossroadLeftFlag.row = crossroadLeftFlag.limitRow = crossRoadRightFlag.row = crossRoadRightFlag.limitRow = 0;
+
 #define CROSSROAD_FIX 0
 
     for(row = startRow - 3; row > imageStatus.endRow; --row)
     {
-
+        th = areaThresholdMap[row];
         //右边..
         pLTemp.row = pRTemp.row = row;
-        high = LimitH(imgProcDataPtr->right.border[row + 1] + 12,IMG_RIGHT - 1);
-        low = LimitL(imgProcDataPtr->right.border[row + 1] - 12,1);
+        high = LimitH(imgProcDataPtr->right.border[row + 1] + 10,IMG_RIGHT - 1);
+        low = LimitL(imgProcDataPtr->right.border[row + 1] - 10,1);
 
-        if(row == 44)
+        if(row == 42)
             imgProcDataPtr->endRow = 0;
 
         for(pRTemp.col = col = high; col > low; --col)
@@ -1522,7 +1594,7 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
                     imgProcDataPtr->right.border[row] = col;
                     imgProcDataPtr->right.borderType[row] = RealBorder;
                     break;
-                }else if(grads[row][col].grad > th * 1&& ((*imageRaw)[row][col + 1] > th * 0.8|| (*imageRaw)[row + 1][col] >  th * 0.8) && (grads[row][col].gradY < 0))
+                }else if(grads[row][col].grad > th * 1 )//&& ((*imageRaw)[row][col - 1] > th|| (*imageRaw)[row + 1][col] >  th ) && (grads[row][col].gradY < 0))
                 {
                     CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgba(0,255,255,100)))));
                     CPPCODE(display->DrawPoint(col,row));
@@ -1582,8 +1654,8 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
             imgProcDataPtr->right.border[row] = imgProcDataPtr->right.border[row + 1];
 
 
-        high = LimitH(imgProcDataPtr->left.border[row + 1] + 12,IMG_RIGHT - 1);
-        low = LimitL(imgProcDataPtr->left.border[row + 1] - 12,1);
+        high = LimitH(imgProcDataPtr->left.border[row + 1] + 10,IMG_RIGHT - 1);
+        low = LimitL(imgProcDataPtr->left.border[row + 1] - 10,1);
         for(pLTemp.col = col = low; col < high; ++col)
         {
             //搜索当前点的周围情况..
@@ -1600,7 +1672,7 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
                     imgProcDataPtr->left.border[row] = col;
                     imgProcDataPtr->left.borderType[row] = RealBorder;
                     break;
-                }else if(grads[row][col].grad > th * 1)
+                }else if(grads[row][col].grad > th * 1)// && ((*imageRaw)[row][col + 1] > th|| (*imageRaw)[row + 1][col] >  th ) && (grads[row][col].gradY > 0))
                 {
                     CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgba(0,255,255,100)))));
                     CPPCODE(display->DrawPoint(col,row));
@@ -1724,14 +1796,21 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
 
         }
 
+
 #endif
 
 
 
 #if 1        //处理折点..
-        if(row <= 100)
+        if(row <= startRow - 8)
         {
 
+
+            //Clear CrossRoad Buf
+            if(crossroadLeftFlag.limitRow > row)
+                crossroadLeftFlag.dir = 0;
+            if(crossRoadRightFlag.limitRow > row)
+                crossRoadRightFlag.dir = 0;
 
             if(imgProcDataPtr->left.borderType[row] != NoBorder)
             {
@@ -1744,6 +1823,14 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
                     //这个循环下如果没找到是不是可以加一个flag呢..如果另外一边找到了这种情况再回头来清flag
                     //为什么需要这么搞呢?感觉是怕拐弯的时候也给补线了..
                     crossRoadClearFlag = 'F';
+
+                    if(crossroadLeftFlag.dir == 0)
+                    {
+                        //
+                        crossroadLeftFlag.dir = 'L';
+                        crossroadLeftFlag.row = row;
+                        crossroadLeftFlag.limitRow = row - 5;
+                    }
 
                     for (int16_t yTemp = row; yTemp <= row + 5; ++yTemp)
                     {
@@ -1794,6 +1881,9 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
 
 
                 }
+
+
+
             }
 
 
@@ -1803,6 +1893,14 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
                         && imgProcDataPtr->right.border[row + 4] - imgProcDataPtr->right.border[row + 8] <= 3)
                 {
                     crossRoadClearFlag = 'F';
+
+                    if(crossRoadRightFlag.dir == 0)
+                    {
+                        //
+                        crossRoadRightFlag.dir = 'R';
+                        crossRoadRightFlag.row = row;
+                        crossRoadRightFlag.limitRow = row - 5;
+                    }
 
                     for (int16_t yTemp = row; yTemp <= row + 5; ++yTemp)
                     {
@@ -1853,6 +1951,22 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
                 }
             }
 
+            //CrossRoadJudge
+            if(crossroadLeftFlag.dir == 'L' && crossRoadRightFlag.dir == 'R')
+            {
+                CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(135,206,0,100), 1, Qt::SolidLine)));
+                CPPCODE(display->H.value("H").painter->drawLine(0+30,row,IMG_RIGHT-30,row));
+                //进入 crossRoadMode
+                for (int16_t yTemp = (row + 4); yTemp >= row; --yTemp)
+                {
+                    //消除左边的折点
+                    imgProcDataPtr->right.border[yTemp] = 2 * imgProcDataPtr->right.border[yTemp + 1] - imgProcDataPtr->right.border[yTemp + 2];
+                    //折线上点的状态改变
+                    imgProcDataPtr->right.borderType[yTemp] = NoBorder;
+                    CPPCODE(display->DrawPoint(imgProcDataPtr->right.border[yTemp],yTemp));
+                }
+            }
+
         }
 #endif
 
@@ -1877,6 +1991,96 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
             CPPCODE(display->DrawPoint(IMG_RIGHT,Ysite));
         }
     }
+
+
+
+
+    /////////////////////////Curve Fitter
+    /////////////////////////Curve Fitter
+    /////////////////////////Curve Fitter
+    /////////////////////////Curve Fitter
+    /////////////////////////Curve Fitter
+    imgProcDataPtr->endRow = imageStatus.endRow;
+    if(imageStatus.endRow <= 80)
+    {
+        for(row = imageStatus.endRow; row < imageStatus.endRow + 6; ++row)
+        {
+
+
+
+            if (imgProcDataPtr->left.borderType[row] == NoBorder && imgProcDataPtr->left.borderType[row + 1] == NoBorder
+                && imgProcDataPtr->right.borderType[row] != NoBorder && imgProcDataPtr->right.borderType[row + 1] != NoBorder
+                )
+            {
+                while (row >= imgProcDataPtr->endRow + 1)
+                {
+
+                    --row;
+
+                    if (imgProcDataPtr->right.borderType[row] == NoBorder) break;
+                    if (imgProcDataPtr->left.borderType[row] == RealBorder && (imgProcDataPtr->pathWidth[row] <= 20 || (row <= imgProcDataPtr->endRow + 5)))
+                    {
+
+                        imgProcDataPtr->left.border[row] = imgProcDataPtr->left.border[row + 2];
+                        imgProcDataPtr->left.borderType[row] = NoBorder;
+                        imgProcDataPtr->right.border[row] = 2 * imgProcDataPtr->right.border[row + 1] - imgProcDataPtr->right.border[row + 2];
+
+                        Limit(imgProcDataPtr->left.border[row], IMG_LEFT, IMG_RIGHT);
+                        Limit(imgProcDataPtr->right.border[row], IMG_LEFT, IMG_RIGHT);
+
+                        imgProcDataPtr->pathWidth[row] = imgProcDataPtr->right.border[row] - imgProcDataPtr->left.border[row];
+                        imgProcDataPtr->middleLine[row] = (imgProcDataPtr->left.border[row] + imgProcDataPtr->right.border[row]) / 2;
+
+                        if (imgProcDataPtr->pathWidth[row] <= 0)
+                        {
+                            imgProcDataPtr->endRow = row + 1;
+                            break;
+                        }
+
+                    }
+                }
+
+                break;
+
+            }
+            else if (imgProcDataPtr->right.borderType[row] == NoBorder && imgProcDataPtr->right.borderType[row + 1] == NoBorder
+                && imgProcDataPtr->left.borderType[row] == RealBorder && imgProcDataPtr->left.borderType[row + 1] == RealBorder)
+            {
+                while (row >= imgProcDataPtr->endRow + 1)
+                {
+
+                    --row;
+
+                    if (imgProcDataPtr->left.borderType[row] != RealBorder) break;
+                    if (imgProcDataPtr->right.borderType[row] == RealBorder && (imgProcDataPtr->pathWidth[row] <= 20 || (row <= imgProcDataPtr->endRow + 5)))
+                    {
+                        imgProcDataPtr->right.border[row] = imgProcDataPtr->right.border[row + 2];
+                        imgProcDataPtr->right.borderType[row] = NoBorder;
+                        imgProcDataPtr->left.border[row] = 2 * imgProcDataPtr->left.border[row + 1] - imgProcDataPtr->left.border[row + 2];
+
+                        Limit(imgProcDataPtr->left.border[row], IMG_LEFT, IMG_RIGHT);
+                        Limit(imgProcDataPtr->right.border[row], IMG_LEFT, IMG_RIGHT);
+
+
+                        imgProcDataPtr->pathWidth[row] = imgProcDataPtr->right.border[row] - imgProcDataPtr->left.border[row];
+                        imgProcDataPtr->middleLine[row] = (imgProcDataPtr->left.border[row] + imgProcDataPtr->right.border[row]) / 2;
+
+                        if (imgProcDataPtr->pathWidth[row] <= 0)
+                        {
+                            imgProcDataPtr->endRow = row + 1;
+                            break;
+                        }
+
+                    }
+                }
+
+                break;
+            }
+
+        }
+    }
+
+
 
     //尝试补线..补线程序..
     int       TFSite = startRow, FTSite = startRow,ytemp;
@@ -1943,6 +2147,8 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
             TFSite = Ysite + 2;
         }
     }
+
+
 
     CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgba(255,255,0,100)))));
 

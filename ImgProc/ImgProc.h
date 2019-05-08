@@ -53,7 +53,12 @@ public:
     void GetOnePointSobel(BYTE (*imageRaw)[120][188],PointGradTypeDef* g,LINE row,LINE col);
     uint8 GetOnePointNMS(BYTE (*imageRaw)[120][188],LINE row,LINE col);//对某点进行极大值抑制.
 
+    BYTE GetAreaThreshold(BYTE (*imageRaw)[120][188],LINE row,LINE col);
+    void CreateAreaThresholdMap(BYTE (*imageRaw)[120][188]);
     void ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE startCol,LINE endCol);
+
+    void CurveFillter(void);
+    //void FindJumpPointInRange
 
 
 protected:
