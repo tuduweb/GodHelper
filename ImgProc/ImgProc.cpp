@@ -1458,12 +1458,6 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
     IMGPROC_STRUCT_PTR imgProcDataPtr = &imgProcData;
 
     //初始化参数..
-    memset(borderPic,0,sizeof(borderPic));
-    memset(borderLeft,0,sizeof(borderLeft));
-    memset(borderRight,0,sizeof(borderRight));
-    memset(borderGradX,0,sizeof(borderGradX));
-    memset(borderGradY,0,sizeof(borderGradY));
-    memset(borderGrad,0,sizeof(borderGrad));
     memset(grads,0,sizeof(grads));
     memset(&imgProcData,0,sizeof(imgProcData));
 
