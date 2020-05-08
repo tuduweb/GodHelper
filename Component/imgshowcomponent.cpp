@@ -49,14 +49,18 @@ ImgShowComponent::ImgShowComponent(QWidget *parent):OpenGLWidget(parent)
     imgLabel = new QLabel(this);
     imgLabel->setContentsMargins(0,0,0,0);
     imgLabel->setFrameStyle(QFrame::NoFrame);
-    imgLabel->setStyleSheet(QStringLiteral("border: 0px; background-color: rgba(255, 255, 255, 0.0);color:#CCC;"));
+    imgLabel->setStyleSheet(QStringLiteral("border: 0px; background-color: rgba(255, 255, 255, 0.00);color:#CCC;"));
     imgLabel->setAlignment(Qt::AlignCenter);
-    imgLabel->setMinimumSize(IMG_COL*4,IMG_ROW*4);
+    imgLabel->setMinimumSize(IMG_COL*3,IMG_ROW*3);
+    imgLabel->setMaximumSize(IMG_COL*3,IMG_ROW*3);
 
     //imgLabel->resize(188,120);
     imgLabel->setText("imgLabel");//底层文字..
 
     mainLayout->addWidget(imgLabel);
+
+    qDebug() << "imgLabel x,y" << imgLabel->width() << " " << imgLabel->height();
+
     textLabel = new QLabel(this);
     //textLabel->resize(600,24);
     textLabel->setMaximumSize(9999,24);
@@ -77,6 +81,24 @@ ImgShowComponent::ImgShowComponent(QWidget *parent):OpenGLWidget(parent)
 
     QHBoxLayout* ImgShowSettingsLayout = new QHBoxLayout;
 
+
+
+    QPushButton* LunwenBtn = new QPushButton("Copy",this);
+    ImgShowSettingsLayout->addWidget(LunwenBtn);
+    LunwenBtn->setCheckable(true);
+    connect(LunwenBtn,&QPushButton::pressed,[=](){
+        qDebug() << "拷贝论文图像";
+
+        //QPixmap* pix = new QPixmap(*pixmap);
+        //pix->scaled(QSize(IMG_COL*10,IMG_ROW*10), Qt::KeepAspectRatio);
+
+        QImage image = (*pixmap).toImage();
+
+        QClipboard *clip=QApplication::clipboard();
+        clip->setImage(image.scaled(image.width()*5,image.height()*5, Qt::KeepAspectRatio));
+    });
+
+    /**
     QPushButton* pushBtn = new QPushButton("Setting",this);
     ImgShowSettingsLayout->addWidget(pushBtn);
 
@@ -92,10 +114,9 @@ ImgShowComponent::ImgShowComponent(QWidget *parent):OpenGLWidget(parent)
 
     AutoSaveBtn->setCheckable(true);
 
-
     QDateTime timestamp = QDateTime::currentDateTime();
     QString times = timestamp.toString("yyMMdd");
-    saveDirLineEdit->setText(QString("F:/monitorPics/2019/%1/").arg(times));
+    saveDirLineEdit->setText(QString("F:/monitorPics/2020/%1/").arg(times));
 
     connect(AutoSaveBtn,&QPushButton::toggled,[=](bool checked){
         fileHandle->isAutoSave = !this->isAutoSave;
@@ -105,10 +126,12 @@ ImgShowComponent::ImgShowComponent(QWidget *parent):OpenGLWidget(parent)
         {
             if(fileHandle->mkDir(fileHandle->saveDir))
             {
-                qDebug()<<QString("%1 目錄創建成功!").arg(fileHandle->saveDir);
+                qDebug()<<QString("%1 目录创建成功!").arg(fileHandle->saveDir);
             }
         }
     });
+    **/
+
     mainLayout->addLayout(ImgShowSettingsLayout);
 
     emit updateSurface();
@@ -128,9 +151,10 @@ void ImgShowComponent::paintEvent(QPaintEvent *event)
     Q_UNUSED(event);
     QPainter painter(this);
 
-    QRect parentRect=   QRect(imgLabel->x(),imgLabel->y(),  imgLabel->width()   ,    imgLabel->height() + textLabel->height() );//绘图区域 这里是全部绘图..
+    QRect parentRect=   QRect(imgLabel->x(),imgLabel->y(),  imgLabel->width()   ,    imgLabel->height() );//绘图区域 这里是  imgLabel->height() + textLabel->height()
     QRect pixRect   =   QRect(0,0,pixmap->width(),pixmap->height());
     painter.drawPixmap(parentRect,*pixmap,pixRect);
+
 }
 
 void ImgShowComponent::mouseMoveEvent(QMouseEvent *event)

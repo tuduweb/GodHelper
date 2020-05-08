@@ -70,6 +70,10 @@ public:
 
 
     ImgProcCore* imgProcCore;
+
+    ImgProcCore* imgProcCore2;
+
+
     QThread imgProcThread;//图像线程
 
     QThread fileHandleThread;//文件处理线程..
@@ -78,6 +82,8 @@ public:
 
 
     void ProcessPackage(COMM_DATA_TypeDef* packagePtr);
+
+    void ProcLast();
 
 
 protected:

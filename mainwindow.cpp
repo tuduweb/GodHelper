@@ -67,19 +67,25 @@ MainWindow::MainWindow(QWidget *parent) :
     //新建两个窗口 后面要批量生产的都要用List
     for(int i = 0;i < 1;i++)
     {
+        //CarPanel
         QVBoxLayout* carPanelLayoutItem = new QVBoxLayout();
         carPanelLayoutList.append(carPanelLayoutItem);
-        ImgShowComponent *imgShow = new ImgShowComponent(this);
-        imgShowList.append(imgShow);
-        //imgShow->resize(564,360);
-        //imgShow->setMinimumSize(564,360);
-        //imgShow->setMaximumSize(564,360);
 
+        QHBoxLayout* imgPanelLayoutItem = new QHBoxLayout();
 
+        for(int imgShowNum = 0;imgShowNum < 2;imgShowNum++)
+        {
+            ImgShowComponent *imgShow = new ImgShowComponent(this);
+            imgShowList.append(imgShow);
+            imgShow->resize(564,410);
+            imgShow->setMinimumSize(564,410);
+            imgShow->setMaximumSize(564,410);//400-360
+            imgPanelLayoutItem->addWidget(imgShow);
+        }
 
-        carPanelLayoutItem->addWidget(imgShow);//横排
+        carPanelLayoutItem->addLayout(imgPanelLayoutItem);
         carPanelsLayout->addLayout(carPanelLayoutItem);
-        //连接关系
+        //连接关系 关系连接在下面..
 
 
 
@@ -272,10 +278,10 @@ MainWindow::MainWindow(QWidget *parent) :
 
     /////////////////////////////////////////////数学分析////////////////////////////////////////////////
     QPen seriesPen;
-    seriesPen.setWidth(1);
-    seriesPen.setColor(QColor("white"));
+    seriesPen.setWidth(2);
+    seriesPen.setColor(QColor("Black"));
     QChart* chartGrayScale = new QChart();
-    chartGrayScale->setTheme(QChart::ChartThemeDark);
+    chartGrayScale->setTheme(QChart::ChartThemeLight);
     chartGrayScale->legend()->hide();//隐藏标题
     chartGrayScale->layout()->setContentsMargins(0,0,0,0);//外边界
     chartGrayScale->setMargins(QMargins(0, 0, 0, 0));//内边界
@@ -294,17 +300,22 @@ MainWindow::MainWindow(QWidget *parent) :
     }
     //*set0 << 1 << 2 << 3 << 4 << 5 << 6;// 名字为 Jane 竖条的 6个值 （分别代表6个月的值）
     //splineSeries->append(set0);
-    chartView->setMaximumHeight(150);
+
+    //布局高度
+    //chartView->setMaximumHeight(150);
+
+
     //chartView->setMaximumWidth(imgShowList[0]->width());
     chartView->setFrameStyle(0);
 
     //carPanelLayoutList[0]->addWidget(chartView);
     chartGrayScale->addSeries(splineSeries);
-    splineSeries->setName("ceshi");
+    splineSeries->setName("灰度");
     chartGrayScale->createDefaultAxes();
-    chartGrayScale->setTitle("GrayScale");
+    chartGrayScale->setTitle("Intensity Histogram");
+    chartGrayScale->setTitleFont(QFont("Microsoft YaHei",24));
     chartGrayScale->axisX()->setRange(0,256);
-    chartGrayScale->axisY()->hide();
+    //chartGrayScale->axisY()->hide();
     chartGrayScale->axisY()->setRange(0,1000);
 
     connect(dataCenterPtr->imgProcCore->imgProc,&ImgProc::UpdateGrayScaleChart,[=](int* array){
@@ -333,15 +344,70 @@ MainWindow::MainWindow(QWidget *parent) :
     carTab->addTab(chartView,"Math Analysis");
     carPanelLayoutList[0]->addWidget(carTab);
 
+    QHBoxLayout* ControlLayout = new QHBoxLayout;
+
+    QPushButton* LunwenBtn = new QPushButton("Copy",this);
+    ControlLayout->addWidget(LunwenBtn);
+    carPanelLayoutList[0]->addLayout(ControlLayout);
+    LunwenBtn->setCheckable(true);
+    connect(LunwenBtn,&QPushButton::pressed,[=](){
+        qDebug() << "拷贝论文图像";
+
+        //QPixmap* pix = new QPixmap(*pixmap);
+        //pix->scaled(QSize(IMG_COL*10,IMG_ROW*10), Qt::KeepAspectRatio);
+
+        QPixmap pix = chartView->grab();
+
+        QClipboard *clip=QApplication::clipboard();
+        //clip->setImage(image.scaled(image.width()*5,image.height()*5, Qt::KeepAspectRatio));
+        clip->setPixmap(pix.scaled(pix.width(),pix.height(), Qt::KeepAspectRatio));
+    });
+
+    QLineEdit* paramMin = new QLineEdit("0",this);
+    QLineEdit* paramMax = new QLineEdit("255",this);
+    QCheckBox* paramShowCheckBox = new QCheckBox("Gray",this);
+    QLabel* sectionLimitText = new QLabel("SectionLimit",this);
+    QLineEdit* sectionLimit = new QLineEdit("32",this);
+    QSpinBox* sectionRowLimit = new QSpinBox(this);
+    sectionRowLimit->setRange(0,IMG_ROW - 1);
+    sectionRowLimit->setValue(32);
+
+    QPushButton* changeParamBtn = new QPushButton("Update",this);
+    ControlLayout->addWidget(paramShowCheckBox);
+
+    ControlLayout->addWidget(paramMin);
+    ControlLayout->addWidget(paramMax);
+
+    ControlLayout->addWidget(sectionLimitText);
+    ControlLayout->addWidget(sectionLimit);
+
+    ControlLayout->addWidget(changeParamBtn);
+
+    ControlLayout->addWidget(sectionRowLimit);
+
+
+    connect(sectionLimit,&QLineEdit::editingFinished,[=](){
+        qDebug() << "值发生改变";
+    });
+
+    connect(sectionRowLimit,QOverload<int>::of(&QSpinBox::valueChanged),[=](int section){
+        qDebug() << "更新section值" << section;
+        //dataCenterPtr->imgProcCore->imgProc->Process_OSTU_Section(section);
+        dataCenterPtr->imgProcCore->imgProc->currentSection = section;
+        //dataCenterPtr->imgProcCore->imgProc->doProc();
+        dataCenterPtr->ProcLast();
+    });
+
 
     ////////////////////////////////////////////PID整定/////////////////////////////////////////////
-    ParamLine* param = new ParamLine(this);
-    carPanelLayoutList[0]->addWidget(param);
+
+    //ParamLine* param = new ParamLine(this);
+    //carPanelLayoutList[0]->addWidget(param);
 
 
 
 
-    carPanelLayoutList[0]->addSpacerItem(new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Expanding));
+    //carPanelLayoutList[0]->addSpacerItem(new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Expanding));
     //carPanelLayoutList[1]->addSpacerItem(new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Expanding));
 
 }

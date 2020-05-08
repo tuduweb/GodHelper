@@ -33,11 +33,12 @@ public:
     void UpdateCache(QImage* imagePtr);
     void UpdateCache(uchar* imgArrayPtr);
 
-    void test(void);
+    void doProc(void);
 
 
     //大津法..
     void Process_OSTU(void);
+    void Process_OSTU_Section(int i);
     void SobelOnePoint(BYTE* imgPtr,PointGradTypeDef* g,LINE row,LINE col);
 
 
@@ -57,17 +58,28 @@ public:
     void CreateAreaThresholdMap(BYTE (*imageRaw)[120][188]);
     void ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE startCol,LINE endCol);
 
+    void ProcessImage(BYTE* imgPtr,LINE startRow,LINE endRow,LINE startCol,LINE endCol);
+
+
     void CurveFillter(void);
     //void FindJumpPointInRange
+
+
+    void ProcessSimpleCanny2();
+
+    int currentSection = 0;
 
 
 protected:
     void timerEvent(QTimerEvent * timeEvent);
 
+
 signals:
     void UpdateGrayScaleChart(int *chart);
 
+
 public slots:
+    void updateOSTUSection(int section);
 };
 
 #endif // IMGPROC_H

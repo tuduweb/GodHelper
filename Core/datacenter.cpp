@@ -274,6 +274,11 @@ void DataCenter::ProcessPackage(COMM_DATA_TypeDef* packagePtr)
 
 }
 
+void DataCenter::ProcLast()
+{
+    emit updateImage(&trackPicsList.last());
+}
+
 
 
 

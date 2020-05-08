@@ -41,7 +41,7 @@ void ImgProcCore::ImageInterface(QImage* image)
 
     //display->AddDrawingChannel("ss");
     //display->PainterStart();
-    imgProc->test();
+    imgProc->doProc();
 
 
 
@@ -71,8 +71,13 @@ void ImgProcCore::ImageInterface(QImage* image)
 
 
     emit updateSurface(pixmap);
-
 }
+
+void ImgProcCore::UpdateImgProc()
+{
+}
+
+
 
 void ImgProcCore::ByteArrayInterface(QByteArray* byteArray)
 {
@@ -94,7 +99,7 @@ void ImgProcCore::CharArrayInterface(uchar* charArray)
     display->PainterStart();
 
 
-    imgProc->test();
+    imgProc->doProc();
 
     QPainter base;
     QImage image(charArray,IMG_COL,IMG_ROW,QImage::Format_Grayscale8);//把数据转成图片

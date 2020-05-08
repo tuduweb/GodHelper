@@ -20,6 +20,8 @@ public:
 
     explicit ImgProcCore(QObject *parent = nullptr);
 
+    void UpdateImgProc();
+
 
 signals:
     void updateSurface(QPixmap*);
