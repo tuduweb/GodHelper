@@ -29,7 +29,7 @@ public:
     QImage* image;
     uchar* imgArrayPtr;
 
-    explicit ImgProc(QObject *parent = nullptr);
+    explicit ImgProc(int type = 0,QObject *parent = nullptr);
     void UpdateCache(QImage* imagePtr);
     void UpdateCache(uchar* imgArrayPtr);
 
@@ -76,6 +76,11 @@ protected:
 
 signals:
     void UpdateGrayScaleChart(int *chart);
+
+private:
+    int processType;
+
+    int globalTH;
 
 
 public slots:

@@ -42,10 +42,17 @@ DataCenter::DataCenter(QObject *parent) : QObject(parent)
 
 
     //初始化加载处理线程..
-    imgProcCore = new ImgProcCore;
+    imgProcCore = new ImgProcCore(0);
     imgProcCore->moveToThread(&imgProcThread);
+
     connect(&imgProcThread, &QThread::finished, imgProcCore, &QObject::deleteLater);//链接注销,必须链接.否则可能会内存泄露
     connect(&imgProcThread, &QThread::finished, &imgProcThread, &QObject::deleteLater);//如果是new出来的 得有自杀槽
+
+    imgProcCore2 = new ImgProcCore(1);
+    imgProcCore2->moveToThread(&imgProcThread);
+
+    connect(&imgProcThread, &QThread::finished, imgProcCore2, &QObject::deleteLater);//链接注销,必须链接.否则可能会内存泄露
+
     imgProcThread.start();
 
 
@@ -54,6 +61,9 @@ DataCenter::DataCenter(QObject *parent) : QObject(parent)
 
     connect(this,&DataCenter::ProcessImageCharArray,imgProcCore,&ImgProcCore::CharArrayInterface);
 
+
+    connect(this,&DataCenter::updateImage,imgProcCore2,&ImgProcCore::ImageInterface);
+    connect(this,&DataCenter::ProcessImageCharArray,imgProcCore2,&ImgProcCore::CharArrayInterface);
 
 
     //===============================================================文件操作类=======================================================
@@ -276,6 +286,7 @@ void DataCenter::ProcessPackage(COMM_DATA_TypeDef* packagePtr)
 
 void DataCenter::ProcLast()
 {
+    qDebug() << "起作用了吗";
     emit updateImage(&trackPicsList.last());
 }
 

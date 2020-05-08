@@ -47,7 +47,7 @@ void ImgProc::timerEvent(QTimerEvent * event)
 }
 
 
-ImgProc::ImgProc(QObject *parent) : QObject(parent)
+ImgProc::ImgProc(int type,QObject *parent) : QObject(parent) , processType(type)
 {
     display = new ImgProcDisplay(this);
     //image = new QImage(188,120,QImage::Format_Grayscale8);
@@ -83,12 +83,17 @@ void ImgProc::doProc(void)
 
     //Process_OSTU();
 
-    Process_OSTU_Section(currentSection);
+    qDebug() << "processType:" << processType;
 
-    //Process2(imgArrayPtr,95,15);
+    if(processType == 0)
+    {
+        Process_OSTU_Section(currentSection);
+        //Process2(imgArrayPtr,95,15);
+        ProcessSimpleCannyV2(imgArrayPtr,IMG_BOTTOM - 2,35,IMG_LEFT,IMG_RIGHT);
+    }else{
+        ProcessImage(imgArrayPtr,IMG_BOTTOM - 2,35,IMG_LEFT,IMG_RIGHT);
+    }
 
-
-    ProcessSimpleCannyV2(imgArrayPtr,IMG_BOTTOM - 2,35,IMG_LEFT,IMG_RIGHT);
 }
 
 
@@ -228,6 +233,8 @@ void ImgProc::Process_OSTU_Section(int section)
     }
     qDebug()<<"Result : TH"<<th;
 
+    globalTH = th;
+
 
 }
 
@@ -236,6 +243,7 @@ void ImgProc::Process_OSTU_Section(int section)
 
 
 //数据源 宽 高
+#if 0
 BYTE FastOSTU(const BYTE* pIn9, int width9, int height9)
 {
 
@@ -289,6 +297,7 @@ BYTE FastOSTU(const BYTE* pIn9, int width9, int height9)
                 u1 = u1tmp / w1;              //前景平均灰度
                 u = u0tmp + u1tmp;            //全局平均灰度
                 deltaTmp = w0 * pow((u0 - u), 2) + w1 * pow((u1 - u), 2);
+
                 if (deltaTmp > deltaMax)
                 {
                     deltaMax = deltaTmp;
@@ -303,6 +312,67 @@ BYTE FastOSTU(const BYTE* pIn9, int width9, int height9)
 
     return threshold;
 }
+#else
+
+BYTE FastOSTU(const BYTE* pIn9, int width9, int height9)
+{
+    int th = 0;
+    const int GrayScale = 256;	//单通道图像总灰度256级
+    int pixCount[GrayScale] = {0};//每个灰度值所占像素个数
+    int pixSum = (width9 / 2) * (height9 / 2);//图像总像素点
+    float pixPro[GrayScale] = {0};//每个灰度值所占总像素比例
+
+    float w0, w1, u0tmp, u1tmp, u0, u1, deltaTmp, deltaMax = 0;
+
+    uchar (*imageRaw)[120][188] = (uchar (*)[120][188])pIn9;
+
+
+    //imgArray = (uchar (*)[IMG_ROW][IMG_COL])image->bits();
+
+    for(int i = 1; i < width9 ; i+=2)
+    {
+        for(int j = 1; j < height9; j+=2)
+        {
+            pixCount[ (*imageRaw)[j][i] ]++;//统计每个灰度级中像素的个数
+        }
+    }
+
+    for(int i = 0; i < GrayScale; i++)
+    {
+        pixPro[i] = pixCount[i] * 1.0f / pixSum;//计算每个灰度级的像素数目占整幅图像的比例
+    }
+
+
+
+    for(int i = 0; i < GrayScale; i++)//遍历所有从0到255灰度级的阈值分割条件，测试哪一个的类间方差最大
+    {
+        w0 = w1 = u0tmp = u1tmp = u0 = u1 = deltaTmp = 0;
+        for(int j = 0; j < GrayScale; j++)
+        {
+            if(j <= i)//背景
+            {
+                w0 += pixPro[j];
+                u0tmp += j * pixPro[j];
+            }
+            else//前景
+            {
+                w1 += pixPro[j];
+                u1tmp += j * pixPro[j];
+            }
+        }
+        u0 = u0tmp / w0;
+        u1 = u1tmp / w1;
+        deltaTmp = (float)(w0 *w1* pow((u0 - u1), 2)); //类间方差公式 g = w1 * w2 * (u1 - u2) ^ 2
+        if(deltaTmp > deltaMax)
+        {
+            deltaMax = deltaTmp;
+            th = i;
+        }
+    }
+
+    return th;
+}
+#endif
 
 #define CPPCODE(code) code
 
@@ -1556,6 +1626,10 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
     CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(135,206,250,100), 1, Qt::SolidLine)));
     CPPCODE(display->H.value("H").painter->drawLine(0,endRow,IMG_RIGHT,endRow));
 
+
+    CPPCODE(display->H.value("H").painter->setPen(QPen(QColor("White"), 1, Qt::SolidLine)));
+    CPPCODE(display->H.value("H").painter->drawText(IMG_COL/2,20,QString("%1").arg(globalTH)));
+
     LINE row = startRow;
     LINE col = IMG_COL/2 - 1;
 
@@ -2238,8 +2312,100 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
 
 }
 
+
+#endif
+
+
 void ImgProc::ProcessImage(BYTE *imgPtr, LINE startRow, LINE endRow, LINE startCol, LINE endCol)
 {
+    IMGPROC_STRUCT_PTR imgProcDataPtr = &imgProcData;
 
+    //初始化参数..
+    memset(grads,0,sizeof(grads));
+    memset(&imgProcData,0,sizeof(imgProcData));
+
+    imageStatus.endRow = endRow;
+
+    //计算近处全局灰度 隔行 隔列1 0 1 0 1 0 1
+    BYTE (*imageRaw)[120][188] = (uchar (*)[120][188])imgPtr;
+    BYTE* rowPtr;
+
+    CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(135,206,250,255), 1, Qt::SolidLine)));
+    CPPCODE(display->H.value("H").painter->drawLine(0,currentSection,IMG_RIGHT,currentSection));
+
+    //CPPCODE painter颜色选择
+    CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(135,206,250,100), 1, Qt::SolidLine)));
+    CPPCODE(display->H.value("H").painter->drawLine(0,endRow,IMG_RIGHT,endRow));
+
+    LINE row = startRow;
+    LINE col = IMG_COL/2 - 1;
+
+    LINE searchStartCol = IMG_COL/2 - 1;
+
+
+    imgProcDataPtr->endRow = 0;
+
+    //大津法判断起始边界 减少运算量
+    //我们有理由相信近处的边界误差较小
+    //这里从倒数25行往下的..往下20行
+    BYTE th = FastOSTU((*imageRaw)[currentSection],IMG_COL,IMG_ROW - currentSection);//阈值
+
+
+    CPPCODE(display->H.value("H").painter->setPen(QPen(QColor("White"), 1, Qt::SolidLine)));
+    CPPCODE(display->H.value("H").painter->drawText(IMG_COL/2,20,QString("%1").arg(th)));
+
+
+//FastOSTU((*imageRaw)[IMG_BOTTOM - 25],IMG_COL,20)
+    //最基本的算法 还需要改进很多东西才能正式应用到小车系统中去。
+    LINE rowTemp;
+    for(;row > endRow;--row)
+    {
+
+            rowPtr = (*imageRaw)[row];
+            //从某一列开始
+            for(col = searchStartCol; col <= IMG_RIGHT; col++)
+            {
+                //右边
+    #if 1
+                if(rowPtr[col] < th)
+                {
+                    CPPCODE(display->DrawPoint(col,row));
+                    //qDebug()<<row<<col;
+                    if(imgProcDataPtr->right.borderType[row] == NoBorder)
+                    {
+                        imgProcDataPtr->right.borderType[row] = TempBorder;
+                        imgProcDataPtr->right.border[row] = col;
+                    }
+                }
+    #endif
+            }
+
+            if(imgProcDataPtr->right.borderType[row] == NoBorder)
+            {
+                imgProcDataPtr->right.border[row] = IMG_RIGHT;
+            }
+
+            for(col = searchStartCol; col >= IMG_LEFT; col--)
+            {
+    #if 1
+                //右边
+                if(rowPtr[col] < th)
+                {
+                    CPPCODE(display->DrawPoint(col,row));
+                    //qDebug()<<row<<col;
+                    if(imgProcDataPtr->left.borderType[row] == NoBorder)
+                    {
+                        imgProcDataPtr->left.borderType[row] = TempBorder;
+                        imgProcDataPtr->left.border[row] = col;
+                    }
+                }
+    #endif
+            }
+            if(imgProcDataPtr->left.borderType[row] == NoBorder)
+            {
+                imgProcDataPtr->left.border[row] = IMG_LEFT;
+            }
+            searchStartCol = imgProcDataPtr->middleLine[row] = (imgProcDataPtr->left.border[row] + imgProcDataPtr->right.border[row])/2;
+
+    }
 }
-#endif

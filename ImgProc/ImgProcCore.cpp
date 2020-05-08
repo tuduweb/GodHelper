@@ -11,13 +11,14 @@
 
 #include "Core/FileHandle.h"
 
-ImgProcCore::ImgProcCore(QObject *parent) : QObject(parent)
+ImgProcCore::ImgProcCore(int type,QObject *parent) : QObject(parent)
 {
     ////////////////////////////////////////
     /// 图像处理线程..Class
     /// 主要用于处理图像.存在于QT和智能车的c程序,opencv等之间图像处理的桥梁
     /// 2019年3月17日15:43:57
-    imgProc = new ImgProc(this);
+
+    imgProc = new ImgProc(type,this);
     display = imgProc->display;
 
     pixmap = new QPixmap(188,120);
@@ -68,6 +69,8 @@ void ImgProcCore::ImageInterface(QImage* image)
     base.end();
 
     *pixmap = QPixmap::fromImage(cover);
+
+
 
 
     emit updateSurface(pixmap);

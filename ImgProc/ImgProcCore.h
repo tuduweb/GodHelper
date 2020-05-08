@@ -18,7 +18,7 @@ public:
     QPixmap *pixmap;//显示的图片
 
 
-    explicit ImgProcCore(QObject *parent = nullptr);
+    explicit ImgProcCore(int type = 0,QObject *parent = nullptr);
 
     void UpdateImgProc();
 

@@ -98,6 +98,9 @@ MainWindow::MainWindow(QWidget *parent) :
     //绑定一个数据..传递方式请用数据指针..
     connect(imgShowList.first(),&ImgShowComponent::dropSignals,dataCenter,&DataCenter::ImgUrlInterface);
     connect(dataCenterPtr->imgProcCore,&ImgProcCore::updateSurface,imgShowList[0],&ImgShowComponent::updateImgWidgetPtr);
+
+    connect(dataCenterPtr->imgProcCore2,&ImgProcCore::updateSurface,imgShowList[1],&ImgShowComponent::updateImgWidgetPtr);
+
     connect(imgShowList[0],&ImgShowComponent::PosMove,dataCenterPtr->imgProcCore,&ImgProcCore::PosMoveSlot);
 
 
@@ -369,7 +372,7 @@ MainWindow::MainWindow(QWidget *parent) :
     QLabel* sectionLimitText = new QLabel("SectionLimit",this);
     QLineEdit* sectionLimit = new QLineEdit("32",this);
     QSpinBox* sectionRowLimit = new QSpinBox(this);
-    sectionRowLimit->setRange(0,IMG_ROW - 1);
+    sectionRowLimit->setRange(0,IMG_ROW - 2);
     sectionRowLimit->setValue(32);
 
     QPushButton* changeParamBtn = new QPushButton("Update",this);
@@ -393,9 +396,14 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(sectionRowLimit,QOverload<int>::of(&QSpinBox::valueChanged),[=](int section){
         qDebug() << "更新section值" << section;
         //dataCenterPtr->imgProcCore->imgProc->Process_OSTU_Section(section);
+        if(section > IMG_ROW - 2)
+            return;
         dataCenterPtr->imgProcCore->imgProc->currentSection = section;
+        dataCenterPtr->imgProcCore2->imgProc->currentSection = section;
+
         //dataCenterPtr->imgProcCore->imgProc->doProc();
         dataCenterPtr->ProcLast();
+
     });
 
 
