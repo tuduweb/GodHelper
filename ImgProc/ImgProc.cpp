@@ -5,6 +5,8 @@
 
 static int testNum = 0;
 
+static BYTE grayImage[IMG_ROW][IMG_COL] = {0};
+
 ///////////////////////////////一些基本,特殊方法//////////////////////////////
 void GetGrayScale(uchar *ptr,short grayScale[])
 {
@@ -85,19 +87,41 @@ void ImgProc::doProc(void)
 
     qDebug() << "processType:" << processType;
 
-    if(processType == 0)
-    {
-        Process_OSTU_Section(currentSection);
+    switch (processType) {
+    case 0:
+        Process_OSTU_Section_ByID(0,currentSection);
         //Process2(imgArrayPtr,95,15);
+        //Process_OSTU_Section_ByID(1,currentSection);
+
         ProcessSimpleCannyV2(imgArrayPtr,IMG_BOTTOM - 2,35,IMG_LEFT,IMG_RIGHT);
-    }else{
-        ProcessImage(imgArrayPtr,IMG_BOTTOM - 2,35,IMG_LEFT,IMG_RIGHT);
+        //ProcessFullSobel(imgArrayPtr,IMG_BOTTOM, IMG_TOP,IMG_LEFT,IMG_RIGHT);
+
+        break;
+    case 1:
+        ProcessImage(imgArrayPtr,IMG_BOTTOM,32,IMG_LEFT,IMG_RIGHT);
+        break;
+
+    case 2:
+        //ProcessSimpleCannyV2(imgArrayPtr,IMG_BOTTOM - 2,35,IMG_LEFT,IMG_RIGHT);
+        ProcessFullSobel(imgArrayPtr,IMG_BOTTOM - 2, 35,IMG_LEFT,IMG_RIGHT);
+        break;
+    default:
+        break;
     }
+
+//    if(processType == 0)
+//    {
+//        Process_OSTU_Section(currentSection);
+//        //Process2(imgArrayPtr,95,15);
+//        ProcessSimpleCannyV2(imgArrayPtr,IMG_BOTTOM - 2,35,IMG_LEFT,IMG_RIGHT);
+//    }else{
+//        ProcessImage(imgArrayPtr,IMG_BOTTOM - 2,35,IMG_LEFT,IMG_RIGHT);
+//    }
 
 }
 
 
-void ImgProc::Process_OSTU(void)
+void ImgProc::Process_OSTU(BYTE* imgPtr,int section)
 {
 
     int th = 0;
@@ -107,20 +131,19 @@ void ImgProc::Process_OSTU(void)
     float pixPro[GrayScale] = {0};//每个灰度值所占总像素比例
     float w0, w1, u0tmp, u1tmp, u0, u1, deltaTmp, deltaMax = 0;
 
-    uchar (*imageRaw)[120][188] = (uchar (*)[120][188])imgArrayPtr;
+    uchar (*imageRaw)[120][188] = (uchar (*)[120][188])imgPtr;
 
 
     //imgArray = (uchar (*)[IMG_ROW][IMG_COL])image->bits();
 
     for(int i = 0; i < IMG_COL; i++)
     {
-        for(int j = 0; j < IMG_ROW; j++)
+        for(int j = section; j < IMG_ROW; j++)
         {
             pixCount[ (*imageRaw)[j][i] ]++;//统计每个灰度级中像素的个数
         }
     }
-
-    UpdateGrayScaleChart(pixCount);
+    emit UpdateXYChart(1,pixCount);
 
     for(int i = 0; i < GrayScale; i++)
     {
@@ -154,7 +177,7 @@ void ImgProc::Process_OSTU(void)
             th = i;
         }
     }
-    qDebug()<<"Result : TH"<<th;
+    qDebug()<<"Gray Result : TH"<<th;
 
 
 }
@@ -166,11 +189,77 @@ void ImgProc::updateOSTUSection(int section)
         qDebug() << "SECTION 错误";
     }else{
         Process_OSTU_Section(section);
+        Process_OSTU(grayImage[0],section);
+
         currentSection = section;
     }
 
 }
 
+
+void ImgProc::Process_OSTU_Section_ByID(int id,int section)
+{
+
+    int th = 0;
+    const int GrayScale = 256;	//单通道图像总灰度256级
+    int pixCount[GrayScale] = {0};//每个灰度值所占像素个数
+    int pixSum = IMG_ROW * IMG_COL;//图像总像素点
+    float pixPro[GrayScale] = {0};//每个灰度值所占总像素比例
+
+    float w0, w1, u0tmp, u1tmp, u0, u1, deltaTmp, deltaMax = 0;
+
+    uchar (*imageRaw)[120][188] = (uchar (*)[120][188])imgArrayPtr;
+
+
+    //imgArray = (uchar (*)[IMG_ROW][IMG_COL])image->bits();
+
+    for(int i = 0; i < IMG_COL; i++)
+    {
+        for(int j = section; j < IMG_ROW; j++)
+        {
+            pixCount[ (*imageRaw)[j][i] ]++;//统计每个灰度级中像素的个数
+        }
+    }
+
+    //更新直方表?
+    emit UpdateXYChart(id,pixCount);
+
+    for(int i = 0; i < GrayScale; i++)
+    {
+        pixPro[i] = pixCount[i] * 1.0f / pixSum;//计算每个灰度级的像素数目占整幅图像的比例
+    }
+
+
+
+    for(int i = 0; i < GrayScale; i++)//遍历所有从0到255灰度级的阈值分割条件，测试哪一个的类间方差最大
+    {
+        w0 = w1 = u0tmp = u1tmp = u0 = u1 = deltaTmp = 0;
+        for(int j = 0; j < GrayScale; j++)
+        {
+            if(j <= i)//背景
+            {
+                w0 += pixPro[j];
+                u0tmp += j * pixPro[j];
+            }
+            else//前景
+            {
+                w1 += pixPro[j];
+                u1tmp += j * pixPro[j];
+            }
+        }
+        u0 = u0tmp / w0;
+        u1 = u1tmp / w1;
+        deltaTmp = (float)(w0 *w1* pow((u0 - u1), 2)); //类间方差公式 g = w1 * w2 * (u1 - u2) ^ 2
+        if(deltaTmp > deltaMax)
+        {
+            deltaMax = deltaTmp;
+            th = i;
+        }
+    }
+
+    globalTH = th;
+
+}
 
 void ImgProc::Process_OSTU_Section(int section)
 {
@@ -197,7 +286,7 @@ void ImgProc::Process_OSTU_Section(int section)
     }
 
     //更新直方表?
-    UpdateGrayScaleChart(pixCount);
+    emit UpdateXYChart(0,pixCount);
 
     for(int i = 0; i < GrayScale; i++)
     {
@@ -1731,8 +1820,8 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
         high = LimitH(imgProcDataPtr->right.border[row + 1] + 10,IMG_RIGHT - 1);
         low = LimitL(imgProcDataPtr->right.border[row + 1] - 10,1);
 
-        if(row == 42)
-            imgProcDataPtr->endRow = 0;
+//        if(row == 42)
+//            imgProcDataPtr->endRow = 0;
 
         for(pRTemp.col = col = high; col > low; --col)
         {
@@ -1842,7 +1931,7 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
                 }
 
             }
-            imgProcDataPtr->endRow = 0;
+            //imgProcDataPtr->endRow = 0;
         }
         if(imgProcDataPtr->left.borderType[row] == WeakBorder)
         {
@@ -1853,7 +1942,7 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
             if(((*imageRaw)[row][pLTemp.col + 1]) > th)
             {
                 CPPCODE(display->DrawPoint(pLTemp.col,row));
-            }else{
+            }else{//<=th
                 imgProcDataPtr->left.borderType[row] = ContinueFind;
             }
 
@@ -2304,11 +2393,31 @@ void ImgProc::ProcessSimpleCannyV2(BYTE* imgPtr,LINE startRow,LINE endRow,LINE s
 
     CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(qRgba(255,255,0,100)))));
 
+    int tongji = 0;
+    int tongji2 = 0;
     for(LINE Ysite = startRow;Ysite > imageStatus.endRow;Ysite--)
     {
         imgProcDataPtr->middleLine[Ysite] = (imgProcDataPtr->left.border[Ysite] + imgProcDataPtr->right.border[Ysite])/2;
         CPPCODE(display->DrawPoint(imgProcDataPtr->middleLine[Ysite],Ysite));
+        if(imgProcDataPtr->left.borderType[Ysite] == WeakBorder)
+            tongji++;
+        if(imgProcDataPtr->right.borderType[Ysite] == WeakBorder)
+            tongji++;
+
+        if(imgProcDataPtr->left.borderType[Ysite] == TempBorder)
+            tongji2++;
+        if(imgProcDataPtr->right.borderType[Ysite] == TempBorder)
+            tongji2++;
+
     }
+
+
+
+    CPPCODE(display->H.value("H").painter->setPen(QPen(QColor("White"), 1, Qt::SolidLine)));
+    CPPCODE(display->H.value("H").painter->drawText(IMG_COL/4,20,QString("%1").arg(tongji)));
+
+    CPPCODE(display->H.value("H").painter->setPen(QPen(QColor("White"), 1, Qt::SolidLine)));
+    CPPCODE(display->H.value("H").painter->drawText(IMG_COL*3/4,20,QString("%1").arg(tongji2)));
 
 }
 
@@ -2361,6 +2470,9 @@ void ImgProc::ProcessImage(BYTE *imgPtr, LINE startRow, LINE endRow, LINE startC
     for(;row > endRow;--row)
     {
 
+        //th = areaThresholdMap[row];
+
+
             rowPtr = (*imageRaw)[row];
             //从某一列开始
             for(col = searchStartCol; col <= IMG_RIGHT; col++)
@@ -2369,13 +2481,15 @@ void ImgProc::ProcessImage(BYTE *imgPtr, LINE startRow, LINE endRow, LINE startC
     #if 1
                 if(rowPtr[col] < th)
                 {
-                    CPPCODE(display->DrawPoint(col,row));
+                    //CPPCODE(display->DrawPoint(col,row));
                     //qDebug()<<row<<col;
                     if(imgProcDataPtr->right.borderType[row] == NoBorder)
                     {
                         imgProcDataPtr->right.borderType[row] = TempBorder;
                         imgProcDataPtr->right.border[row] = col;
                     }
+                }else{
+                    CPPCODE(display->DrawPoint(col,row));
                 }
     #endif
             }
@@ -2391,13 +2505,15 @@ void ImgProc::ProcessImage(BYTE *imgPtr, LINE startRow, LINE endRow, LINE startC
                 //右边
                 if(rowPtr[col] < th)
                 {
-                    CPPCODE(display->DrawPoint(col,row));
+
                     //qDebug()<<row<<col;
                     if(imgProcDataPtr->left.borderType[row] == NoBorder)
                     {
                         imgProcDataPtr->left.borderType[row] = TempBorder;
                         imgProcDataPtr->left.border[row] = col;
                     }
+                }else{
+                    CPPCODE(display->DrawPoint(col,row));
                 }
     #endif
             }
@@ -2408,4 +2524,76 @@ void ImgProc::ProcessImage(BYTE *imgPtr, LINE startRow, LINE endRow, LINE startC
             searchStartCol = imgProcDataPtr->middleLine[row] = (imgProcDataPtr->left.border[row] + imgProcDataPtr->right.border[row])/2;
 
     }
+}
+
+void ImgProc::ProcessFullSobel(BYTE *imgPtr, LINE startRow, LINE endRow, LINE startCol, LINE endCol)
+{
+//    IMGPROC_STRUCT_PTR imgProcDataPtr = &imgProcData;
+
+//    //初始化参数..
+//    memset(grads,0,sizeof(grads));
+//    memset(&imgProcData,0,sizeof(imgProcData));
+
+//    imageStatus.endRow = endRow;
+
+//    //计算近处全局灰度 隔行 隔列1 0 1 0 1 0 1
+//    BYTE (*imageRaw)[120][188] = (uchar (*)[120][188])imgPtr;
+//    BYTE* rowPtr;
+
+//    CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(135,206,250,255), 1, Qt::SolidLine)));
+//    CPPCODE(display->H.value("H").painter->drawLine(0,currentSection,IMG_RIGHT,currentSection));
+
+//    //CPPCODE painter颜色选择
+//    CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(135,206,250,100), 1, Qt::SolidLine)));
+//    CPPCODE(display->H.value("H").painter->drawLine(0,endRow,IMG_RIGHT,endRow));
+
+//    LINE row = startRow;
+//    LINE col = IMG_COL/2 - 1;
+
+//    LINE searchStartCol = IMG_COL/2 - 1;
+
+//    for(int row = startRow - 1; row > endRow + 1;row--)
+//    {
+//        //
+//    }
+
+    BYTE (*imageRaw)[IMG_ROW][IMG_COL] = (uchar (*)[IMG_ROW][IMG_COL])imgPtr;
+    PointGradTypeDef g;
+
+    //初始化参数..
+    memset(grads,0,sizeof(grads));
+    memset(&imgProcData,0,sizeof(imgProcData));
+
+    //确定矩形区域 远处为0行 近处为MAX - 1 行
+    LINE row = startRow - 1,col = startCol + 1;
+    int gray = 0;
+
+
+    memset(grayImage,0xFF,sizeof(grayImage));
+
+    for(;row > endRow;--row)
+    {
+        for(col = startCol + 1;col < endCol - 1;++col)
+        {
+            SobelOnePoint(imgPtr,&g,row,col);
+            grad[row][col].gradX = g.gradX;
+            grad[row][col].gradY = g.gradY;
+            grad[row][col].atan = atan2(g.gradY,g.gradX);
+
+
+            grayImage[row][col] = (grad[row][col].gradX > 255 ? 255 : grad[row][col].gradX);
+
+
+//            CPPCODE(display->H.value("H").painter->setPen(QPen(QColor(gray,gray,gray,255), 1, Qt::SolidLine)));
+//            CPPCODE(display->H.value("H").painter->drawPoint(col,row));
+        }
+    }
+    Process_OSTU(grayImage[0],currentSection);
+
+
+    //把grad转pic
+    QImage image(grayImage[0],IMG_COL,IMG_ROW,QImage::Format_Grayscale8);//把数据转成图片
+    CPPCODE(display->H.value("H").painter->drawImage(QRect(0,0,IMG_COL,IMG_ROW), image));
+
+
 }

@@ -37,8 +37,9 @@ public:
 
 
     //大津法..
-    void Process_OSTU(void);
+    void Process_OSTU(BYTE* imgPtr,int section);
     void Process_OSTU_Section(int i);
+    void Process_OSTU_Section_ByID(int id,int i);
     void SobelOnePoint(BYTE* imgPtr,PointGradTypeDef* g,LINE row,LINE col);
 
 
@@ -60,6 +61,8 @@ public:
 
     void ProcessImage(BYTE* imgPtr,LINE startRow,LINE endRow,LINE startCol,LINE endCol);
 
+    void ProcessFullSobel(BYTE* imgPtr,LINE startRow,LINE endRow,LINE startCol,LINE endCol);
+
 
     void CurveFillter(void);
     //void FindJumpPointInRange
@@ -76,6 +79,8 @@ protected:
 
 signals:
     void UpdateGrayScaleChart(int *chart);
+signals:
+    void UpdateXYChart(int id,int *chart);
 
 private:
     int processType;

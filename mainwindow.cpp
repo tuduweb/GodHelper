@@ -280,131 +280,428 @@ MainWindow::MainWindow(QWidget *parent) :
 
 
     /////////////////////////////////////////////数学分析////////////////////////////////////////////////
-    QPen seriesPen;
-    seriesPen.setWidth(2);
-    seriesPen.setColor(QColor("Black"));
-    QChart* chartGrayScale = new QChart();
-    chartGrayScale->setTheme(QChart::ChartThemeLight);
-    chartGrayScale->legend()->hide();//隐藏标题
-    chartGrayScale->layout()->setContentsMargins(0,0,0,0);//外边界
-    chartGrayScale->setMargins(QMargins(0, 0, 0, 0));//内边界
-    QChartView* chartView = new QChartView(chartGrayScale);
+//    QPen seriesPen;
+//    seriesPen.setWidth(2);
+//    seriesPen.setColor(QColor("Black"));
+//    QChart* chartGrayScale = new QChart();
+//    chartGrayScale->setTheme(QChart::ChartThemeLight);
+//    chartGrayScale->legend()->hide();//隐藏标题
+//    chartGrayScale->layout()->setContentsMargins(0,0,0,0);//外边界
+//    chartGrayScale->setMargins(QMargins(0, 0, 0, 0));//内边界
+//    QChartView* chartView = new QChartView(chartGrayScale);
+//    //chartView->setMaximumSize(1000,400)
 
-    QSplineSeries* splineSeries = new QSplineSeries();
-    splineSeries->setUseOpenGL();
-    splineSeries->setPen(seriesPen);
+//    QSplineSeries* splineSeries = new QSplineSeries();
+//    splineSeries->setUseOpenGL();
+//    splineSeries->setPen(seriesPen);
 
 
-    //QBarSeries *series = new QBarSeries();
-    //QBarSet *set0 = new QBarSet("Jane");
-    for(int i = 0;i < 256;i++)
+//    //QBarSeries *series = new QBarSeries();
+//    //QBarSet *set0 = new QBarSet("Jane");
+//    for(int i = 0;i < 256;i++)
+//    {
+//        splineSeries->append(i,i);
+//    }
+//    //*set0 << 1 << 2 << 3 << 4 << 5 << 6;// 名字为 Jane 竖条的 6个值 （分别代表6个月的值）
+//    //splineSeries->append(set0);
+
+//    //布局高度
+//    //chartView->setMaximumHeight(150);
+
+
+//    //chartView->setMaximumWidth(imgShowList[0]->width());
+//    chartView->setFrameStyle(0);
+
+//    //carPanelLayoutList[0]->addWidget(chartView);
+//    chartGrayScale->addSeries(splineSeries);
+//    splineSeries->setName("灰度");
+//    chartGrayScale->createDefaultAxes();
+//    chartGrayScale->setTitle("Intensity Histogram");
+//    chartGrayScale->setTitleFont(QFont("Microsoft YaHei",24));
+//    chartGrayScale->axisX()->setRange(0,256);
+//    //chartGrayScale->axisY()->hide();
+//    chartGrayScale->axisY()->setRange(0,1000);
+
+//    connect(dataCenterPtr->imgProcCore->imgProc,&ImgProc::UpdateGrayScaleChart,[=](int* array){
+//        QTime time;
+//        time.start();
+//        int max = 0;
+//        QVector<QPointF> v(256);
+
+//        for(int i = 0;i < 256;i++)
+//        {
+//            if(*(array + i) > max)
+//                max = *(array + i);
+//            v.append( QPointF(i,*(array + i)) );
+
+//            //splineSeries->replace(i,i,*(array+i));
+//            //splineSeries->replace(i, *(array+i) );
+//        }
+//        //以Vector为形式..效率提高N倍.这是一次性画图..replace一次绘图一次的吧..
+//        splineSeries->replace(v);
+//        chartGrayScale->axisY()->setMax(max+1);
+//        qDebug()<<time.elapsed()/1000.0<<"s";
+//    });
+
+
+//    //QTabWidget* carTab = new QTabWidget(this);
+
+
+//    QGridLayout* gridLayout = new QGridLayout();
+//    gridLayout->addWidget(chartView,0,0);
+
+//    //carTab->addTab(chartView,"Math Analysis");
+
+
+
+//    //gridLayout->addWidget(chartView2,1,1);
+
+//    //carTab->addTab(chartView2,"Math Analysis2");
+
+//    //carPanelLayoutList[0]->addWidget(carTab);
+
+//    carPanelLayoutList[0]->addLayout(gridLayout);
+
+//    QHBoxLayout* ControlLayout = new QHBoxLayout;
+
+//    QPushButton* LunwenBtn = new QPushButton("Copy",this);
+//    ControlLayout->addWidget(LunwenBtn);
+//    carPanelLayoutList[0]->addLayout(ControlLayout);
+//    LunwenBtn->setCheckable(true);
+//    connect(LunwenBtn,&QPushButton::pressed,[=](){
+//        qDebug() << "拷贝论文图像";
+
+//        //QPixmap* pix = new QPixmap(*pixmap);
+//        //pix->scaled(QSize(IMG_COL*10,IMG_ROW*10), Qt::KeepAspectRatio);
+
+//        QPixmap pix = chartView->grab();
+
+//        QClipboard *clip=QApplication::clipboard();
+//        //clip->setImage(image.scaled(image.width()*5,image.height()*5, Qt::KeepAspectRatio));
+//        clip->setPixmap(pix.scaled(pix.width(),pix.height(), Qt::KeepAspectRatio));
+//    });
+
+//    QLineEdit* paramMin = new QLineEdit("0",this);
+//    QLineEdit* paramMax = new QLineEdit("255",this);
+//    QCheckBox* paramShowCheckBox = new QCheckBox("Gray",this);
+//    QLabel* sectionLimitText = new QLabel("SectionLimit",this);
+//    QLineEdit* sectionLimit = new QLineEdit("32",this);
+//    QSpinBox* sectionRowLimit = new QSpinBox(this);
+//    sectionRowLimit->setRange(0,IMG_ROW - 2);
+//    sectionRowLimit->setValue(32);
+
+//    QPushButton* changeParamBtn = new QPushButton("Update",this);
+//    ControlLayout->addWidget(paramShowCheckBox);
+
+//    ControlLayout->addWidget(paramMin);
+//    ControlLayout->addWidget(paramMax);
+
+//    ControlLayout->addWidget(sectionLimitText);
+//    ControlLayout->addWidget(sectionLimit);
+
+//    ControlLayout->addWidget(changeParamBtn);
+
+//    ControlLayout->addWidget(sectionRowLimit);
+
+
+//    connect(sectionLimit,&QLineEdit::editingFinished,[=](){
+//        qDebug() << "值发生改变";
+//    });
+
+//    connect(sectionRowLimit,QOverload<int>::of(&QSpinBox::valueChanged),[=](int section){
+//        qDebug() << "更新section值" << section;
+//        //dataCenterPtr->imgProcCore->imgProc->Process_OSTU_Section(section);
+//        if(section > IMG_ROW - 2)
+//            return;
+//        dataCenterPtr->imgProcCore->imgProc->currentSection = section;
+//        dataCenterPtr->imgProcCore2->imgProc->currentSection = section;
+
+//        //dataCenterPtr->imgProcCore->imgProc->doProc();
+//        dataCenterPtr->ProcLast();
+
+//    });
+
+    ////////////////////////////////////////////单个车图像下的数学分析界面/////////////////////////////////////////////
+    //数学分析就是多图表
+
+    QGridLayout* gridLayout = new QGridLayout();
+
+    QList<QVBoxLayout*> analysisLayoutList;
+    QVBoxLayout* analysisLayoutItem;
+
+    analysisLayoutList.append(new QVBoxLayout () );
+    analysisLayoutItem = analysisLayoutList.last();
+
+    //新建一个图表
+
     {
-        splineSeries->append(i,i);
-    }
-    //*set0 << 1 << 2 << 3 << 4 << 5 << 6;// 名字为 Jane 竖条的 6个值 （分别代表6个月的值）
-    //splineSeries->append(set0);
+        QPen seriesPen;
+        seriesPen.setWidth(2);
+        seriesPen.setColor(QColor("Black"));
+        QChart* chartGrayScale = new QChart();
+        chartGrayScale->setTheme(QChart::ChartThemeLight);
+        chartGrayScale->legend()->hide();//隐藏标题
+        chartGrayScale->layout()->setContentsMargins(0,0,0,0);//外边界
+        chartGrayScale->setMargins(QMargins(0, 0, 0, 0));//内边界
+        QChartView* chartView = new QChartView(chartGrayScale);
+        //chartView->setMaximumSize(1000,400)
 
-    //布局高度
-    //chartView->setMaximumHeight(150);
-
-
-    //chartView->setMaximumWidth(imgShowList[0]->width());
-    chartView->setFrameStyle(0);
-
-    //carPanelLayoutList[0]->addWidget(chartView);
-    chartGrayScale->addSeries(splineSeries);
-    splineSeries->setName("灰度");
-    chartGrayScale->createDefaultAxes();
-    chartGrayScale->setTitle("Intensity Histogram");
-    chartGrayScale->setTitleFont(QFont("Microsoft YaHei",24));
-    chartGrayScale->axisX()->setRange(0,256);
-    //chartGrayScale->axisY()->hide();
-    chartGrayScale->axisY()->setRange(0,1000);
-
-    connect(dataCenterPtr->imgProcCore->imgProc,&ImgProc::UpdateGrayScaleChart,[=](int* array){
-        QTime time;
-        time.start();
-        int max = 0;
-        QVector<QPointF> v(256);
+        QSplineSeries* splineSeries = new QSplineSeries();
+        splineSeries->setUseOpenGL();
+        splineSeries->setPen(seriesPen);
 
         for(int i = 0;i < 256;i++)
         {
-            if(*(array + i) > max)
-                max = *(array + i);
-            v.append( QPointF(i,*(array + i)) );
-
-            //splineSeries->replace(i,i,*(array+i));
-            //splineSeries->replace(i, *(array+i) );
+            splineSeries->append(i,i);
         }
-        //以Vector为形式..效率提高N倍.这是一次性画图..replace一次绘图一次的吧..
-        splineSeries->replace(v);
-        chartGrayScale->axisY()->setMax(max+1);
-        qDebug()<<time.elapsed()/1000.0<<"s";
+
+        chartView->setFrameStyle(0);
+
+        chartGrayScale->addSeries(splineSeries);
+        splineSeries->setName("灰度");
+        chartGrayScale->createDefaultAxes();
+        chartGrayScale->setTitle("Intensity Histogram");
+        chartGrayScale->setTitleFont(QFont("Microsoft YaHei",24));
+        chartGrayScale->axisX()->setRange(0,256);
+        chartGrayScale->axisY()->setRange(0,1000);
+        connect(dataCenterPtr->imgProcCore->imgProc,&ImgProc::UpdateGrayScaleChart,[=](int* array){
+            qDebug() << "=============================" << "hello" << "============================";
+
+        });
+
+        connect(dataCenterPtr->imgProcCore->imgProc,&ImgProc::UpdateXYChart,[=](int id,int* array){
+            if(id != 0)
+                return;
+            QTime time;
+            time.start();
+            int max = 0;
+            QVector<QPointF> v(256);
+
+            for(int i = 0;i < 256;i++)
+            {
+                if(*(array + i) > max)
+                    max = *(array + i);
+                v.append( QPointF(i,*(array + i)) );
+
+                //splineSeries->replace(i,i,*(array+i));
+                //splineSeries->replace(i, *(array+i) );
+            }
+            //以Vector为形式..效率提高N倍.这是一次性画图..replace一次绘图一次的吧..
+            splineSeries->replace(v);
+            chartGrayScale->axisY()->setMax(max+1);
+            qDebug()<<time.elapsed()/1000.0<<"s";
+        });
+
+
+        //图表下属控制
+        QHBoxLayout* ControlLayout = new QHBoxLayout;
+
+        QPushButton* LunwenBtn = new QPushButton("Copy",this);
+        ControlLayout->addWidget(LunwenBtn);
+
+        LunwenBtn->setCheckable(true);
+        connect(LunwenBtn,&QPushButton::pressed,[=](){
+            qDebug() << "拷贝论文图像";
+
+            //QPixmap* pix = new QPixmap(*pixmap);
+            //pix->scaled(QSize(IMG_COL*10,IMG_ROW*10), Qt::KeepAspectRatio);
+
+            QPixmap pix = chartView->grab();
+
+            QClipboard *clip=QApplication::clipboard();
+            //clip->setImage(image.scaled(image.width()*5,image.height()*5, Qt::KeepAspectRatio));
+            clip->setPixmap(pix.scaled(pix.width(),pix.height(), Qt::KeepAspectRatio));
+        });
+
+        QLineEdit* paramMin = new QLineEdit("0",this);
+        QLineEdit* paramMax = new QLineEdit("255",this);
+        QCheckBox* paramShowCheckBox = new QCheckBox("Gray",this);
+        QLabel* sectionLimitText = new QLabel("SectionLimit",this);
+        QLineEdit* sectionLimit = new QLineEdit("32",this);
+        QSpinBox* sectionRowLimit = new QSpinBox(this);
+        sectionRowLimit->setRange(0,IMG_ROW - 2);
+        sectionRowLimit->setValue(32);
+
+        QPushButton* changeParamBtn = new QPushButton("Update",this);
+        ControlLayout->addWidget(paramShowCheckBox);
+
+        ControlLayout->addWidget(paramMin);
+        ControlLayout->addWidget(paramMax);
+
+        ControlLayout->addWidget(sectionLimitText);
+        ControlLayout->addWidget(sectionLimit);
+
+        ControlLayout->addWidget(changeParamBtn);
+
+        ControlLayout->addWidget(sectionRowLimit);
+
+
+        connect(sectionLimit,&QLineEdit::editingFinished,[=](){
+            qDebug() << "值发生改变";
+        });
+
+        connect(sectionRowLimit,QOverload<int>::of(&QSpinBox::valueChanged),[=](int section){
+            qDebug() << "更新section值" << section;
+            //dataCenterPtr->imgProcCore->imgProc->Process_OSTU_Section(section);
+            if(section > IMG_ROW - 2)
+                return;
+            dataCenterPtr->imgProcCore->imgProc->currentSection = section;
+            dataCenterPtr->imgProcCore2->imgProc->currentSection = section;
+
+            //dataCenterPtr->imgProcCore->imgProc->doProc();
+            dataCenterPtr->ProcLast();
+
+        });
+        chartView->setMaximumHeight(240);
+
+        analysisLayoutItem->addWidget(chartView);
+        analysisLayoutItem->addLayout(ControlLayout);
+    }
+
+
+
+
+    analysisLayoutList.append(new QVBoxLayout () );
+    analysisLayoutItem = analysisLayoutList.last();
+
+    //图表二
+
+    {
+        QPen seriesPen;
+        seriesPen.setWidth(2);
+        seriesPen.setColor(QColor("Black"));
+        QChart* chartGrayScale = new QChart();
+        chartGrayScale->setTheme(QChart::ChartThemeLight);
+        chartGrayScale->legend()->hide();//隐藏标题
+        chartGrayScale->layout()->setContentsMargins(0,0,0,0);//外边界
+        chartGrayScale->setMargins(QMargins(0, 0, 0, 0));//内边界
+        QChartView* chartView = new QChartView(chartGrayScale);
+        //chartView->setMaximumSize(1000,400)
+
+        QSplineSeries* splineSeries = new QSplineSeries();
+        splineSeries->setUseOpenGL();
+        splineSeries->setPen(seriesPen);
+
+        for(int i = 0;i < 256;i++)
+        {
+            splineSeries->append(i,i);
+        }
+
+        chartView->setFrameStyle(0);
+
+        chartGrayScale->addSeries(splineSeries);
+        splineSeries->setName("灰度");
+        chartGrayScale->createDefaultAxes();
+        chartGrayScale->setTitle("Intensity Histogram");
+        chartGrayScale->setTitleFont(QFont("Microsoft YaHei",24));
+        chartGrayScale->axisX()->setRange(0,256);
+        chartGrayScale->axisY()->setRange(0,1000);
+
+        //数据更新
+        connect(dataCenterPtr->imgProcCore->imgProc,&ImgProc::UpdateXYChart,[=](int id,int* array){
+            if(id != 1 || array == nullptr)
+                return;
+            QTime time;
+            time.start();
+            int max = 0;
+            QVector<QPointF> v(256);
+
+            for(int i = 0;i < 256;i++)
+            {
+                if(*(array + i) > max)
+                    max = *(array + i);
+                v.append( QPointF(i,*(array + i)) );
+                qDebug() << *(array + i);
+
+                //splineSeries->replace(i,i,*(array+i));
+                //splineSeries->replace(i, *(array+i) );
+            }
+            //以Vector为形式..效率提高N倍.这是一次性画图..replace一次绘图一次的吧..
+            splineSeries->replace(v);
+            chartGrayScale->axisY()->setMax(max+1);
+            qDebug()<<time.elapsed()/1000.0<<"s";
+        });
+
+
+        //图表下属控制
+        QHBoxLayout* ControlLayout = new QHBoxLayout;
+
+        QPushButton* LunwenBtn = new QPushButton("Copy",this);
+        ControlLayout->addWidget(LunwenBtn);
+
+        LunwenBtn->setCheckable(true);
+        connect(LunwenBtn,&QPushButton::pressed,[=](){
+            qDebug() << "拷贝论文图像";
+
+            //QPixmap* pix = new QPixmap(*pixmap);
+            //pix->scaled(QSize(IMG_COL*10,IMG_ROW*10), Qt::KeepAspectRatio);
+
+            QPixmap pix = chartView->grab();
+
+            QClipboard *clip=QApplication::clipboard();
+            //clip->setImage(image.scaled(image.width()*5,image.height()*5, Qt::KeepAspectRatio));
+            clip->setPixmap(pix.scaled(pix.width(),pix.height(), Qt::KeepAspectRatio));
+        });
+
+        QLineEdit* paramMin = new QLineEdit("0",this);
+        QLineEdit* paramMax = new QLineEdit("255",this);
+        QCheckBox* paramShowCheckBox = new QCheckBox("Gray",this);
+        QLabel* sectionLimitText = new QLabel("SectionLimit",this);
+        QLineEdit* sectionLimit = new QLineEdit("32",this);
+        QSpinBox* sectionRowLimit = new QSpinBox(this);
+        sectionRowLimit->setRange(0,IMG_ROW - 2);
+        sectionRowLimit->setValue(32);
+
+        QPushButton* changeParamBtn = new QPushButton("Update",this);
+        ControlLayout->addWidget(paramShowCheckBox);
+
+        ControlLayout->addWidget(paramMin);
+        ControlLayout->addWidget(paramMax);
+
+        ControlLayout->addWidget(sectionLimitText);
+        ControlLayout->addWidget(sectionLimit);
+
+        ControlLayout->addWidget(changeParamBtn);
+
+        ControlLayout->addWidget(sectionRowLimit);
+
+
+        connect(sectionLimit,&QLineEdit::editingFinished,[=](){
+            qDebug() << "值发生改变";
+        });
+
+        connect(sectionRowLimit,QOverload<int>::of(&QSpinBox::valueChanged),[=](int section){
+            qDebug() << "更新section值" << section;
+            //dataCenterPtr->imgProcCore->imgProc->Process_OSTU_Section(section);
+            if(section > IMG_ROW - 2)
+                return;
+            dataCenterPtr->imgProcCore->imgProc->currentSection = section;
+            dataCenterPtr->imgProcCore2->imgProc->currentSection = section;
+
+            //dataCenterPtr->imgProcCore->imgProc->doProc();
+            dataCenterPtr->ProcLast();
+
+        });
+
+        chartView->setMaximumHeight(240);
+        analysisLayoutItem->addWidget(chartView);
+        analysisLayoutItem->addLayout(ControlLayout);
+    }
+
+    for(int i = 0;i < analysisLayoutList.size();i++)
+    {
+        gridLayout->addLayout(analysisLayoutList[i],i / 2, (i + 1)/2);
+    }
+
+    //应用
+    carPanelLayoutList[0]->addLayout(gridLayout);
+
+
+
+    connect(dataCenterPtr->imgProcCore->imgProc,&ImgProc::UpdateXYChart,[=](int id,int* array){
+        qDebug() << "=============================" << id << "============================";
     });
 
-
-    QTabWidget* carTab = new QTabWidget(this);
-    carTab->addTab(chartView,"Math Analysis");
-    carPanelLayoutList[0]->addWidget(carTab);
-
-    QHBoxLayout* ControlLayout = new QHBoxLayout;
-
-    QPushButton* LunwenBtn = new QPushButton("Copy",this);
-    ControlLayout->addWidget(LunwenBtn);
-    carPanelLayoutList[0]->addLayout(ControlLayout);
-    LunwenBtn->setCheckable(true);
-    connect(LunwenBtn,&QPushButton::pressed,[=](){
-        qDebug() << "拷贝论文图像";
-
-        //QPixmap* pix = new QPixmap(*pixmap);
-        //pix->scaled(QSize(IMG_COL*10,IMG_ROW*10), Qt::KeepAspectRatio);
-
-        QPixmap pix = chartView->grab();
-
-        QClipboard *clip=QApplication::clipboard();
-        //clip->setImage(image.scaled(image.width()*5,image.height()*5, Qt::KeepAspectRatio));
-        clip->setPixmap(pix.scaled(pix.width(),pix.height(), Qt::KeepAspectRatio));
-    });
-
-    QLineEdit* paramMin = new QLineEdit("0",this);
-    QLineEdit* paramMax = new QLineEdit("255",this);
-    QCheckBox* paramShowCheckBox = new QCheckBox("Gray",this);
-    QLabel* sectionLimitText = new QLabel("SectionLimit",this);
-    QLineEdit* sectionLimit = new QLineEdit("32",this);
-    QSpinBox* sectionRowLimit = new QSpinBox(this);
-    sectionRowLimit->setRange(0,IMG_ROW - 2);
-    sectionRowLimit->setValue(32);
-
-    QPushButton* changeParamBtn = new QPushButton("Update",this);
-    ControlLayout->addWidget(paramShowCheckBox);
-
-    ControlLayout->addWidget(paramMin);
-    ControlLayout->addWidget(paramMax);
-
-    ControlLayout->addWidget(sectionLimitText);
-    ControlLayout->addWidget(sectionLimit);
-
-    ControlLayout->addWidget(changeParamBtn);
-
-    ControlLayout->addWidget(sectionRowLimit);
-
-
-    connect(sectionLimit,&QLineEdit::editingFinished,[=](){
-        qDebug() << "值发生改变";
-    });
-
-    connect(sectionRowLimit,QOverload<int>::of(&QSpinBox::valueChanged),[=](int section){
-        qDebug() << "更新section值" << section;
-        //dataCenterPtr->imgProcCore->imgProc->Process_OSTU_Section(section);
-        if(section > IMG_ROW - 2)
-            return;
-        dataCenterPtr->imgProcCore->imgProc->currentSection = section;
-        dataCenterPtr->imgProcCore2->imgProc->currentSection = section;
-
-        //dataCenterPtr->imgProcCore->imgProc->doProc();
-        dataCenterPtr->ProcLast();
-
-    });
 
 
     ////////////////////////////////////////////PID整定/////////////////////////////////////////////
