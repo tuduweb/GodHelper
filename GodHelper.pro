@@ -35,6 +35,8 @@ HEADERS += \
     Core/datacenter.h \
     Core/FileHandle.h \
     Core/openglwidget.h \
+    Core/recordcenter.hpp \
+    Core/recordlist.hpp \
     ImgProc/ImgProc.h \
     ImgProc/ImgProcCore.h \
     ImgProc/imgprocdisplay.h \
@@ -50,6 +52,8 @@ SOURCES += \
     Core/datacenter.cpp \
     Core/FileHandle.cpp \
     Core/openglwidget.cpp \
+    Core/recordcenter.cpp \
+    Core/recordlist.cpp \
     ImgProc/ImgProc.cpp \
     ImgProc/ImgProcCore.cpp \
     ImgProc/imgprocdisplay.cpp \

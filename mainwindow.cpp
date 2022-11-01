@@ -18,6 +18,10 @@
 
 #include "Library/ParamLine.h"
 
+
+#include "Core/recordlist.hpp"
+#include "Core/recordcenter.hpp"
+
 DataCenter* dataCenterPtr;
 static DataCenter *dataCenter;
 QThread dataCenterThread;
@@ -133,10 +137,26 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->rightLayout->addWidget(textBox);
 
 
+    QString _loadPath = "D:/monitorPics/data/test--1747883617.bmp";
+    QImage image(_loadPath);
+
+    QLabel* label = new QLabel;
+    label->setPixmap(QPixmap::fromImage(image));
+
+    ui->rightLayout->addWidget(label);
 
 
+    RecordCenter *recordCenter = new RecordCenter;
 
+    QThread::sleep(1);
 
+    RecordList* recordList = new RecordList(recordCenter);
+    ui->rightLayout->addWidget(recordList);
+
+    connect(recordList, &RecordList::imageChanged, this, [label](const QImage& __image){
+        qDebug() << __image << "changed";
+        label->setPixmap(QPixmap::fromImage(__image));
+    });
 
     /////////////////////////DataSource/////////////////////////////
 
